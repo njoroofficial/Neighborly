@@ -16,6 +16,8 @@ interface MapProps {
   lat: number;
   lng: number;
   neighbors?: any[];
+  requests?: any[];
+  onNeighborClick?: (neighbor: any) => void;
 }
 
 // 2. We export a plain component that simply renders the dynamic one

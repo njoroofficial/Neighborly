@@ -1,11 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import Map from "@/components/Map";
-import CreateRequest from "@/components/CreateRequest";
+import DashboardShell from "@/components/DashboardShell";
 
-// Helper to get token
 async function getToken() {
   const cookieStore = await cookies();
   return cookieStore.get("session_token")?.value;
@@ -33,7 +29,7 @@ export default async function Dashboard() {
   );
   const neighbors = nearbyRes.ok ? await nearbyRes.json() : [];
 
-  // 3. Fetch Nearby Requests
+  // 3. Fetch Requests
   const requestsRes = await fetch(
     "http://127.0.0.1:8000/requests/nearby?radius_km=10",
     {
@@ -43,54 +39,8 @@ export default async function Dashboard() {
   );
   const requests = requestsRes.ok ? await requestsRes.json() : [];
 
+  // 4. Render the Client Shell
   return (
-    <main className="min-h-screen bg-slate-50 p-8">
-      <div className="max-w-4xl mx-auto flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900">Dashboard</h1>
-          <p className="text-slate-500">Welcome back, {user.name} 👋</p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline">Settings</Button>
-          <CreateRequest />
-        </div>
-      </div>
-
-      <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="md:col-span-1">
-          <CardHeader>
-            <CardTitle className="text-lg">My Profile</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col gap-2">
-              <div className="bg-slate-100 p-3 rounded-lg text-center">
-                <span className="block text-2xl font-bold">4.9 ⭐</span>
-                <span className="text-xs text-slate-500">Neighbor Rating</span>
-              </div>
-              <div className="mt-4 text-sm">
-                <p className="font-semibold text-slate-700">Role</p>
-                <p className="text-slate-500 capitalize">{user.role}</p>
-                <p className="font-semibold text-slate-700 mt-2">
-                  Neighbors Nearby
-                </p>
-                <p className="text-slate-500">{neighbors.length} active</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="md:col-span-2 min-h-75 p-0 overflow-hidden">
-          <div className="h-100 w-full">
-            {/* 3. Pass both User and Neighbors to the Map */}
-            <Map
-              lat={user.latitude || -1.2921}
-              lng={user.longitude || 36.8219}
-              neighbors={neighbors}
-              requests={requests}
-            />
-          </div>
-        </Card>
-      </div>
-    </main>
+    <DashboardShell user={user} neighbors={neighbors} requests={requests} />
   );
 }

@@ -37,6 +37,7 @@ interface MapProps {
   lng: number;
   neighbors?: any[];
   requests?: any[];
+  onNeighborClick?: (neighbor: any) => void;
 }
 
 export default function MapCore({
@@ -44,6 +45,7 @@ export default function MapCore({
   lng,
   neighbors = [],
   requests = [],
+  onNeighborClick,
 }: MapProps) {
   return (
     <MapContainer
@@ -68,14 +70,13 @@ export default function MapCore({
           key={neighbor.id}
           position={[neighbor.latitude, neighbor.longitude]}
           icon={customIcon}
-        >
-          <Popup>
-            <div className="text-center">
-              <strong className="block text-sm">{neighbor.name}</strong>
-              <span className="text-xs text-slate-500">{neighbor.role}</span>
-            </div>
-          </Popup>
-        </Marker>
+          eventHandlers={{
+            click: () => {
+              // When clicked, tell the Dashboard Shell!
+              if (onNeighborClick) onNeighborClick(neighbor);
+            },
+          }}
+        ></Marker>
       ))}
 
       {/* 3. REQUEST MARKERS (Red Pins) */}
