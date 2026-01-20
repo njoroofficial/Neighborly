@@ -5,6 +5,7 @@ from database import create_db_and_tables, get_session
 from models import User
 from schemas import UserCreate, UserLogin, UserPublic
 from auth.security import hash_password, verify_password, create_access_token
+from auth.deps import get_current_user
 
 
 
@@ -84,3 +85,12 @@ def login_user(user_input: UserLogin, session: Session = Depends(get_session)):
         }
     }
 
+
+# User Profile Endpoint
+
+@app.get("/users/me", response_model=UserPublic)
+def read_users_me(current_user: User = Depends(get_current_user)):
+    """
+    Returns the profile of the currently logged-in user.
+    """
+    return current_user
