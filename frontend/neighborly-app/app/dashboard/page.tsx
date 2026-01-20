@@ -2,6 +2,8 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import dynamic from "next/dynamic";
+import Map from "@/components/Map";
 
 // The Fetch Function
 async function getUserProfile() {
@@ -75,11 +77,14 @@ export default async function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Card 2: Main Status Area (Placeholder for Map) */}
-        <Card className="md:col-span-2 min-h-75 flex items-center justify-center bg-slate-100 border-dashed">
-          <div className="text-center text-slate-400">
-            <p className="text-lg font-medium">📍 Map Unavailable</p>
-            <p className="text-sm">We need to integrate the map here next.</p>
+        {/* Card 2: Main Status Area (Map) */}
+        <Card className="md:col-span-2 min-h-75 p-0 overflow-hidden">
+          <div className="h-100 w-full">
+            {/* Use logical OR (||) to provide a fallback coordinate */}
+            <Map
+              lat={user.latitude || -1.2921}
+              lng={user.longitude || 36.8219}
+            />
           </div>
         </Card>
       </div>
