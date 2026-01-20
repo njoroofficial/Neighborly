@@ -21,12 +21,26 @@ const customIcon = L.icon({
   shadowSize: [41, 41],
 });
 
+// Red marker icon for neighbors
+const redIcon = L.icon({
+  iconUrl:
+    "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png",
+  iconRetinaUrl:
+    "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png",
+  shadowUrl: shadowUrl,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
+});
+
 interface MapProps {
   lat: number;
   lng: number;
+  neighbors?: any[];
 }
 
-export default function MapCore({ lat, lng }: MapProps) {
+export default function MapCore({ lat, lng, neighbors = [] }: MapProps) {
   return (
     <MapContainer
       center={[lat, lng]}
@@ -39,10 +53,26 @@ export default function MapCore({ lat, lng }: MapProps) {
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
 
-      {/* Pass the customIcon explicitly to the Marker */}
+      {/* 1. YOU (Blue Marker) */}
       <Marker position={[lat, lng]} icon={customIcon}>
         <Popup>You are here! 🏡</Popup>
       </Marker>
+
+      {/* 2. NEIGHBORS (Loop through them) */}
+      {neighbors.map((neighbor: any) => (
+        <Marker
+          key={neighbor.id}
+          position={[neighbor.latitude, neighbor.longitude]}
+          icon={redIcon}
+        >
+          <Popup>
+            <div className="text-center">
+              <strong className="block text-sm">{neighbor.name}</strong>
+              <span className="text-xs text-slate-500">{neighbor.role}</span>
+            </div>
+          </Popup>
+        </Marker>
+      ))}
     </MapContainer>
   );
 }

@@ -6,6 +6,7 @@ from models import User
 from schemas import UserCreate, UserLogin, UserPublic
 from auth.security import hash_password, verify_password, create_access_token
 from auth.deps import get_current_user
+import math
 
 
 
@@ -94,3 +95,46 @@ def read_users_me(current_user: User = Depends(get_current_user)):
     Returns the profile of the currently logged-in user.
     """
     return current_user
+
+# helper function to calculate distance between neighbors
+def calculate_distance(lat1, lon1, lat2, lon2):
+    """
+    Returns distance in km between two coordinates using Haversine formula
+    """
+    R = 6371  # Earth radius in km
+    d_lat = math.radians(lat2 - lat1)
+    d_lon = math.radians(lon2 - lon1)
+    
+    a = (math.sin(d_lat / 2) * math.sin(d_lat / 2) +
+         math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) *
+         math.sin(d_lon / 2) * math.sin(d_lon / 2))
+    
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return R * c
+
+# Find Neighbors Endpoint
+
+@app.get("/users/nearby", response_model=list[UserPublic])
+def find_nearby_neighbors(
+    radius_km: float = 5.0, # Default search radius: 5km
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    # 1. Get all users (except yourself)
+    # Note: For huge apps, use PostGIS (SQL filtering). 
+    # For <1000 users, Python filtering is fine.
+    statement = select(User).where(User.id != current_user.id)
+    all_users = session.exec(statement).all()
+    
+    nearby_users = []
+    
+    # 2. Filter by distance
+    for user in all_users:
+        dist = calculate_distance(
+            current_user.latitude, current_user.longitude,
+            user.latitude, user.longitude
+        )
+        if dist <= radius_km:
+            nearby_users.append(user)
+            
+    return nearby_users
