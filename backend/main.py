@@ -4,7 +4,7 @@ from sqlmodel import Session, select
 from database import create_db_and_tables, get_session
 from models import User
 from schemas import UserCreate, UserLogin, UserPublic
-from auth.security import hash_password, verify_password 
+from auth.security import hash_password, verify_password, create_access_token
 
 
 
@@ -70,6 +70,17 @@ def login_user(user_input: UserLogin, session: Session = Depends(get_session)):
     if not user or not verify_password(user_input.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    # Success! (For now, just a message. Later, a Token)
-    return {"message": "Login successful!", "user_id": user.id, "name": user.name}
+    # Create the wristband (Token)
+    access_token = create_access_token(data={"sub": user.email})
+    
+    # Return it to the frontend
+    return {
+        "access_token": access_token, 
+        "token_type": "bearer",
+        "user": {
+            "name": user.name,
+            "email": user.email,
+            "role": user.role
+        }
+    }
 
