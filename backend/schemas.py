@@ -22,3 +22,5 @@ class UserPublic(BaseModel):
     email: str
     role: str
     is_verified: bool
+    latitude: float  
+    longitude: float
