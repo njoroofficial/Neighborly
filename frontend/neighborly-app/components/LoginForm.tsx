@@ -3,6 +3,21 @@
 import React, { useState } from "react";
 import { loginAction } from "@/app/actions/auth";
 import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
+
+function SubmitButton() {
+  const { pending } = useFormStatus();
+
+  return (
+    <button
+      type="submit"
+      className="mt-2 w-full h-11 rounded-full text-white bg-indigo-600 hover:bg-indigo-500 transition "
+      disabled={pending}
+    >
+      {pending ? "Logging in..." : "Log In"}
+    </button>
+  );
+}
 
 export default function LoginForm() {
   // state: holds the return value from the server action
@@ -15,7 +30,10 @@ export default function LoginForm() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   };
 
   return (
@@ -95,12 +113,7 @@ export default function LoginForm() {
           </button>
         </div>
 
-        <button
-          type="submit"
-          className="mt-2 w-full h-11 rounded-full text-white bg-indigo-600 hover:bg-indigo-500 transition "
-        >
-          Login
-        </button>
+        <SubmitButton />
 
         <p className="text-gray-400 text-sm mt-3 mb-11 cursor-pointer">
           Don't have an account?
