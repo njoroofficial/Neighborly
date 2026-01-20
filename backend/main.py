@@ -2,11 +2,12 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Depends
 from sqlmodel import Session, select
 from database import create_db_and_tables, get_session
-from models import User
-from schemas import UserCreate, UserLogin, UserPublic
+from models import User, HelpRequest
+from schemas import UserCreate, UserLogin, UserPublic, RequestCreate, RequestPublic
 from auth.security import hash_password, verify_password, create_access_token
 from auth.deps import get_current_user
 import math
+from datetime import datetime
 
 
 
@@ -120,7 +121,7 @@ def find_nearby_neighbors(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    # 1. Get all users (except yourself)
+    # Get all users (except yourself)
     # Note: For huge apps, use PostGIS (SQL filtering). 
     # For <1000 users, Python filtering is fine.
     statement = select(User).where(User.id != current_user.id)
@@ -138,3 +139,51 @@ def find_nearby_neighbors(
             nearby_users.append(user)
             
     return nearby_users
+
+
+# Create Help Request
+
+@app.post("/requests", response_model=RequestPublic)
+def create_request(
+    request_data: RequestCreate,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    new_request = HelpRequest(
+        title=request_data.title,
+        description=request_data.description,
+        user_id=current_user.id,
+        latitude=current_user.latitude,   # Auto-fill location from user
+        longitude=current_user.longitude,
+        created_at=datetime.utcnow().isoformat()
+    )
+    
+    session.add(new_request)
+    session.commit()
+    session.refresh(new_request)
+    return new_request
+
+
+# Get Nearby Requests
+
+@app.get("/requests/nearby", response_model=list[RequestPublic])
+def read_nearby_requests(
+    radius_km: float = 10.0,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    # Get all open requests
+    statement = select(HelpRequest).where(HelpRequest.status == "open")
+    all_requests = session.exec(statement).all()
+    
+    nearby_requests = []
+    
+    for req in all_requests:
+        dist = calculate_distance(
+            current_user.latitude, current_user.longitude,
+            req.latitude, req.longitude
+        )
+        if dist <= radius_km:
+            nearby_requests.append(req)
+            
+    return nearby_requests

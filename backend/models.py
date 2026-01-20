@@ -13,14 +13,18 @@ class User(SQLModel, table=True):
     longitude: float
     is_verified: bool = Field(default=False)
 
-# # 2. The Task Blueprint
-class Task(SQLModel, table=True): 
+# The Task Blueprint
+class HelpRequest(SQLModel, table=True):
     id: Optional[UUID] = Field(default_factory=uuid4, primary_key=True)
     title: str
     description: str
-    status: str = Field(default="open")
-    requester_id: UUID = Field(foreign_key="user.id")
-    volunteer_id: Optional[UUID] = Field(default=None, foreign_key="user.id")
+    status: str = "open" # open, in_progress, resolved
+    created_at: str      # We'll store simple strings for now
+    user_id: Optional[UUID] = Field(default=None, foreign_key="user.id")
+    
+    # Denormalization: Storing location directly on the request makes filtering faster
+    latitude: float
+    longitude: float
 
 
     

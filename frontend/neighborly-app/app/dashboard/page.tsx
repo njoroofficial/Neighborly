@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Map from "@/components/Map";
+import CreateRequest from "@/components/CreateRequest";
 
 // Helper to get token
 async function getToken() {
@@ -32,6 +33,16 @@ export default async function Dashboard() {
   );
   const neighbors = nearbyRes.ok ? await nearbyRes.json() : [];
 
+  // 3. Fetch Nearby Requests
+  const requestsRes = await fetch(
+    "http://127.0.0.1:8000/requests/nearby?radius_km=10",
+    {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    },
+  );
+  const requests = requestsRes.ok ? await requestsRes.json() : [];
+
   return (
     <main className="min-h-screen bg-slate-50 p-8">
       <div className="max-w-4xl mx-auto flex justify-between items-center mb-8">
@@ -41,7 +52,7 @@ export default async function Dashboard() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline">Settings</Button>
-          <Button className="bg-slate-900">New Request +</Button>
+          <CreateRequest />
         </div>
       </div>
 
@@ -74,8 +85,8 @@ export default async function Dashboard() {
             <Map
               lat={user.latitude || -1.2921}
               lng={user.longitude || 36.8219}
-              // We'll need to update the Map component to accept this prop next!
               neighbors={neighbors}
+              requests={requests}
             />
           </div>
         </Card>

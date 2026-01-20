@@ -1,5 +1,5 @@
 from sqlmodel import SQLModel, create_engine, Session
-from models import User, Task
+from models import User, HelpRequest
 
 # 1. The Connection String
 # For local dev, we use SQLite (a file). In production, we just swap this URL for PostgreSQL.

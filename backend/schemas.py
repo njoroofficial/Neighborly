@@ -24,3 +24,19 @@ class UserPublic(BaseModel):
     is_verified: bool
     latitude: float  
     longitude: float
+
+# Incoming Data (What the user types)
+class RequestCreate(BaseModel):
+    title: str
+    description: str
+
+# Outgoing Data (What the map sees)
+class RequestPublic(BaseModel):
+    id: UUID
+    title: str
+    description: str
+    status: str
+    created_at: str
+    user_id: UUID
+    latitude: float
+    longitude: float

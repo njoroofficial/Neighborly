@@ -20,14 +20,12 @@ const customIcon = L.icon({
   popupAnchor: [1, -34],
   shadowSize: [41, 41],
 });
-
-// Red marker icon for neighbors
-const redIcon = L.icon({
+// A Red Icon for Help Requests
+const requestIcon = L.icon({
   iconUrl:
     "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png",
-  iconRetinaUrl:
-    "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png",
-  shadowUrl: shadowUrl,
+  shadowUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png",
   iconSize: [25, 41],
   iconAnchor: [12, 41],
   popupAnchor: [1, -34],
@@ -38,9 +36,15 @@ interface MapProps {
   lat: number;
   lng: number;
   neighbors?: any[];
+  requests?: any[];
 }
 
-export default function MapCore({ lat, lng, neighbors = [] }: MapProps) {
+export default function MapCore({
+  lat,
+  lng,
+  neighbors = [],
+  requests = [],
+}: MapProps) {
   return (
     <MapContainer
       center={[lat, lng]}
@@ -63,12 +67,33 @@ export default function MapCore({ lat, lng, neighbors = [] }: MapProps) {
         <Marker
           key={neighbor.id}
           position={[neighbor.latitude, neighbor.longitude]}
-          icon={redIcon}
+          icon={customIcon}
         >
           <Popup>
             <div className="text-center">
               <strong className="block text-sm">{neighbor.name}</strong>
               <span className="text-xs text-slate-500">{neighbor.role}</span>
+            </div>
+          </Popup>
+        </Marker>
+      ))}
+
+      {/* 3. REQUEST MARKERS (Red Pins) */}
+      {requests.map((req: any) => (
+        <Marker
+          key={`req-${req.id}`}
+          position={[req.latitude, req.longitude]}
+          icon={requestIcon}
+        >
+          <Popup>
+            <div className="text-center min-w-37.5">
+              <strong className="block text-sm text-red-600 mb-1">
+                📢 {req.title}
+              </strong>
+              <p className="text-xs text-slate-600 mb-2">{req.description}</p>
+              <button className="bg-slate-900 text-white text-xs px-2 py-1 rounded w-full">
+                Offer Help
+              </button>
             </div>
           </Popup>
         </Marker>
