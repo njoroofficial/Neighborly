@@ -1,6 +1,7 @@
 "use server";
 
-import { json } from "stream/consumers";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
 export async function loginAction(prevState: any, formData: FormData) {
   // 1. Extract data from the form
@@ -37,16 +38,20 @@ export async function loginAction(prevState: any, formData: FormData) {
 
     const data = await response.json();
 
-    // Success!
-    // In a real app, we would store the session token/cookie here.
-    console.log("Login Successful!", data);
-
-    return { message: "Success! Logging you in..." };
+    // success
+    // Store the wristband in a secure cookie
+    // We await cookies() because in Next.js 15/16 it's async
+    (await cookies()).set("session_token", data.access_token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 60 * 60 * 24 * 7, // 1 week
+      path: "/",
+    });
   } catch (error) {
     console.error("Login Error:", error);
     return { message: "Could not connect to the server." };
   }
 
-  // 3. Return the result to the UI
-  return { message: "Login attempted" };
+  // Navigate to the App!
+  redirect("/dashboard");
 }
