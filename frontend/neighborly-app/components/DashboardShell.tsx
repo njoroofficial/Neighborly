@@ -39,11 +39,32 @@ export default function DashboardShell({
   messages,
 }: DashboardShellProps) {
   const router = useRouter();
-  // State to track which neighbor is selected
-  const [selectedNeighbor, setSelectedNeighbor] = useState<any | null>(null);
 
-  // Toggle View
+  // --- STATE MANAGEMENT ---
+  const [selectedNeighbor, setSelectedNeighbor] = useState<any | null>(null);
   const [isChatting, setIsChatting] = useState(false);
+  const [viewingHistory, setViewingHistory] = useState(false);
+  const [reviews, setReviews] = useState<any[]>([]);
+
+  // --- ACTIONS ---
+
+  // Function to load reviews
+  async function loadHistory() {
+    if (!selectedNeighbor) return;
+    setViewingHistory(true); // Switch view
+
+    // Fetch from backend
+    try {
+      const res = await fetch(
+        `http://127.0.0.1:8000/users/${selectedNeighbor.id}/reviews`,
+      );
+      if (res.ok) {
+        setReviews(await res.json());
+      }
+    } catch (error) {
+      console.error("Failed to fetch reviews", error);
+    }
+  }
 
   // Filter messages for the selected neighbor
   const conversation = selectedNeighbor
@@ -63,25 +84,22 @@ export default function DashboardShell({
   async function handleSend(formData: FormData) {
     const text = formData.get("content") as string;
     if (!text || !selectedNeighbor) return;
-
-    // Optimistic update could go here
     await sendMessageAction(text, selectedNeighbor.id);
-    // The form will auto-clear if we use a ref, or simple reset logic
+
+    // Reset form manually
+    const form = document.getElementById("chat-form") as HTMLFormElement;
+    if (form) form.reset();
   }
 
-  // Handler for accepting requests
   async function handleAcceptRequest(requestId: number) {
     const result = await acceptRequestAction(requestId);
     if (result.success) {
       alert("You have accepted this request! 🦸‍♂️");
-      // The map will auto-refresh thanks to revalidatePath,
-      // but for instant feedback, you might want to optimistic update (optional)
     } else {
       alert("Could not accept request.");
     }
   }
 
-  // Handler for resolving a request
   async function handleResolve(requestId: string) {
     if (!confirm("Did your neighbor help you? This will close the request."))
       return;
@@ -92,18 +110,14 @@ export default function DashboardShell({
     }
   }
 
-  // Find if there are active request
+  // Find active requests
   const activeRequests = myRequests.filter((r) => r.status !== "resolved");
 
-  // The Heartbeat Effect 💓
+  // Heartbeat Effect
   useEffect(() => {
-    // Set up a timer to refresh data every 5 seconds
     const interval = setInterval(() => {
       router.refresh();
-      // This re-runs the page.tsx fetches without reloading the browser window!
     }, 5000);
-
-    // Cleanup the timer when the user leaves the page
     return () => clearInterval(interval);
   }, [router]);
 
@@ -121,7 +135,7 @@ export default function DashboardShell({
         </div>
       </div>
 
-      {/* ALERT BANNERS: Loop through all active requests */}
+      {/* ALERT BANNERS */}
       <div className="flex flex-col gap-3 mb-6">
         {activeRequests.map((req) => (
           <div
@@ -132,7 +146,6 @@ export default function DashboardShell({
                 : "bg-orange-50 border-orange-200 text-orange-800"
             }`}
           >
-            {/* Left side text */}
             <div>
               <span className="font-bold mr-2">
                 {req.status === "open"
@@ -141,13 +154,10 @@ export default function DashboardShell({
               </span>
               <span>{req.title}</span>
             </div>
-
-            {/* The Resolve Button */}
             <Button
               size="sm"
               variant="outline"
               className="bg-white hover:bg-slate-100 border-slate-300"
-              // IMPORTANT: Pass the specific req.id here
               onClick={() => handleResolve(req.id)}
             >
               ✅ Mark as Resolved
@@ -166,15 +176,12 @@ export default function DashboardShell({
           <CardContent>
             <div className="flex flex-col items-center gap-3">
               <Avatar className="h-16 w-16 overflow-hidden rounded-full border border-slate-200">
-                {/* Logic: If user.profile_image exists, use it. Else, use DiceBear. */}
                 <AvatarImage
-                  // We append ?t=Date.now() to force a reload
                   src={
                     user.profile_image
                       ? `${user.profile_image}?t=${new Date().getTime()}`
                       : `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`
                   }
-                  // This CSS class makes it resize and crop perfectly into the circle
                   className="object-cover h-full w-full"
                 />
                 <AvatarFallback>{user.name[0]}</AvatarFallback>
@@ -201,7 +208,6 @@ export default function DashboardShell({
               lng={user.longitude || 36.8219}
               neighbors={neighbors}
               requests={requests}
-              // We pass the "setter" function down to the map
               onNeighborClick={setSelectedNeighbor}
               onRequestAccept={handleAcceptRequest}
             />
@@ -215,7 +221,8 @@ export default function DashboardShell({
         onOpenChange={(open) => {
           if (!open) {
             setSelectedNeighbor(null);
-            setIsChatting(false); // Reset to profile view when closing
+            setIsChatting(false);
+            setViewingHistory(false); // Reset history view on close
           }
         }}
       >
@@ -239,14 +246,12 @@ export default function DashboardShell({
                     <SheetTitle>Chat with {selectedNeighbor.name}</SheetTitle>
                   </div>
 
-                  {/* Messages Scroll Area */}
                   <div className="flex-1 overflow-y-auto space-y-3 p-3 bg-slate-50 rounded-lg mb-4 border border-slate-100">
                     {conversation.length === 0 && (
                       <p className="text-center text-slate-400 text-sm mt-10">
                         No messages yet. Say hi! 👋
                       </p>
                     )}
-
                     {conversation.map((msg: any) => {
                       const isMe = msg.sender_id === user.id;
                       return (
@@ -268,7 +273,6 @@ export default function DashboardShell({
                     })}
                   </div>
 
-                  {/* Message Input */}
                   <form
                     id="chat-form"
                     action={handleSend}
@@ -285,12 +289,59 @@ export default function DashboardShell({
                     </Button>
                   </form>
                 </div>
+              ) : viewingHistory ? (
+                // --------------------------------------------------
+                // VIEW 2: THE HISTORY & REVIEWS 📜 (NEW)
+                // --------------------------------------------------
+                <div className="flex flex-col h-full mt-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="-ml-2 px-2"
+                      onClick={() => setViewingHistory(false)} // Go back to profile
+                    >
+                      ← Back
+                    </Button>
+                    <SheetTitle>History & Reviews</SheetTitle>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+                    {reviews.length === 0 ? (
+                      <div className="text-center py-10 text-slate-500">
+                        <p>No reviews yet.</p>
+                        <p className="text-xs mt-1">This neighbor is new!</p>
+                      </div>
+                    ) : (
+                      reviews.map((r) => (
+                        <div
+                          key={r.id}
+                          className="bg-slate-50 p-4 rounded-lg border border-slate-100"
+                        >
+                          <div className="flex justify-between items-start mb-2">
+                            <div className="text-yellow-500 text-sm tracking-wide">
+                              {"★".repeat(r.rating)}
+                              <span className="text-slate-300">
+                                {"★".repeat(5 - r.rating)}
+                              </span>
+                            </div>
+                            <span className="text-xs text-slate-400">
+                              {new Date(r.timestamp).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <p className="text-sm text-slate-700 leading-relaxed">
+                            "{r.comment}"
+                          </p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
               ) : (
                 // --------------------------------------------------
-                // VIEW 2: THE PROFILE CARD (Your original code) 👤
+                // VIEW 3: THE PROFILE CARD (Default) 👤
                 // --------------------------------------------------
                 <div className="flex flex-col gap-6 mt-6">
-                  {/* Header Profile */}
                   <div className="flex flex-col items-center">
                     <Avatar className="h-24 w-24 overflow-hidden rounded-full border-4 border-slate-100">
                       <AvatarImage
@@ -324,7 +375,6 @@ export default function DashboardShell({
                     </div>
                   </div>
 
-                  {/* Stats Grid */}
                   <div className="grid grid-cols-2 gap-4">
                     <div className="bg-slate-50 p-4 rounded text-center">
                       <span className="block font-bold text-xl">12</span>
@@ -344,14 +394,17 @@ export default function DashboardShell({
                   </SheetDescription>
 
                   <div className="mt-auto flex flex-col gap-3">
-                    {/* BUTTON UPDATED: Now toggles the chat view */}
                     <Button
                       className="w-full py-6 text-lg"
                       onClick={() => setIsChatting(true)}
                     >
                       Message {selectedNeighbor.name}
                     </Button>
-                    <Button variant="outline" className="w-full">
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={loadHistory} // <--- CONNECTED HERE
+                    >
                       View Full History
                     </Button>
                   </div>

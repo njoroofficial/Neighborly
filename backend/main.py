@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Depends
 from sqlmodel import Session, select, or_
 from database import create_db_and_tables, get_session
-from models import User, HelpRequest, Message
+from models import User, HelpRequest, Message, Review
 from schemas import UserCreate, UserLogin, UserPublic, RequestCreate, RequestPublic, MessageCreate,MessagePublic
 from auth.security import hash_password, verify_password, create_access_token
 from auth.deps import get_current_user
@@ -361,3 +361,15 @@ def get_conversation(
     
     return session.exec(statement).all()
 
+
+# Add Review to imports if needed
+
+@app.get("/users/{user_id}/reviews")
+def get_user_reviews(
+    user_id: str,
+    session: Session = Depends(get_session)
+):
+    # Fetch reviews where reviewee_id matches
+    statement = select(Review).where(Review.reviewee_id == user_id)
+    reviews = session.exec(statement).all()
+    return reviews

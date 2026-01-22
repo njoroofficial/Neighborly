@@ -39,4 +39,12 @@ class Message(SQLModel, table=True):
     # Relationships
     sender_id: UUID = Field(foreign_key="user.id")
     receiver_id: UUID = Field(foreign_key="user.id")
+
+class Review(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    rating: int # 1 to 5
+    comment: str
+    reviewer_id: UUID = Field(foreign_key="user.id")
+    reviewee_id: UUID = Field(foreign_key="user.id") # The person being reviewed
+    timestamp: str
     
