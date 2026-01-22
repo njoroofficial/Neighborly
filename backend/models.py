@@ -30,5 +30,13 @@ class HelpRequest(SQLModel, table=True):
     latitude: float
     longitude: float
 
-
+# The messages shared 
+class Message(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    content: str
+    timestamp: str
+    
+    # Relationships
+    sender_id: UUID = Field(foreign_key="user.id")
+    receiver_id: UUID = Field(foreign_key="user.id")
     

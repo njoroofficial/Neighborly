@@ -2,8 +2,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Depends
 from sqlmodel import Session, select, or_
 from database import create_db_and_tables, get_session
-from models import User, HelpRequest
-from schemas import UserCreate, UserLogin, UserPublic, RequestCreate, RequestPublic
+from models import User, HelpRequest, Message
+from schemas import UserCreate, UserLogin, UserPublic, RequestCreate, RequestPublic, MessageCreate,MessagePublic
 from auth.security import hash_password, verify_password, create_access_token
 from auth.deps import get_current_user
 import math
@@ -308,3 +308,42 @@ def upload_profile_image(
     session.refresh(current_user)
     
     return {"message": "Image uploaded", "url": image_url}
+
+
+# Chat System
+
+# Send a Message
+@app.post("/messages", response_model=MessagePublic)
+def send_message(
+    msg_data: MessageCreate,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    new_msg = Message(
+        content=msg_data.content,
+        sender_id=current_user.id,
+        receiver_id=msg_data.receiver_id,
+        timestamp=datetime.utcnow().isoformat()
+    )
+    session.add(new_msg)
+    session.commit()
+    session.refresh(new_msg)
+    return new_msg
+
+# Get Conversation with a specific neighbor
+@app.get("/messages/{other_user_id}", response_model=list[MessagePublic])
+def get_conversation(
+    other_user_id: str, # UUID string
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    # We want messages where:
+    # (Sender is ME and Receiver is THEM) OR (Sender is THEM and Receiver is ME)
+    statement = select(Message).where(
+        or_(
+            (Message.sender_id == current_user.id) & (Message.receiver_id == other_user_id),
+            (Message.sender_id == other_user_id) & (Message.receiver_id == current_user.id)
+        )
+    ).order_by(Message.timestamp)
+    
+    return session.exec(statement).all()
