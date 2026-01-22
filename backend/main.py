@@ -2,8 +2,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Depends
 from sqlmodel import Session, select, or_
 from database import create_db_and_tables, get_session
-from models import User, HelpRequest
-from schemas import UserCreate, UserLogin, UserPublic, RequestCreate, RequestPublic
+from models import User, HelpRequest, Message, Review
+from schemas import UserCreate, UserLogin, UserPublic, RequestCreate, RequestPublic, MessageCreate,MessagePublic, ReviewCreate
 from auth.security import hash_password, verify_password, create_access_token
 from auth.deps import get_current_user
 import math
@@ -308,3 +308,119 @@ def upload_profile_image(
     session.refresh(current_user)
     
     return {"message": "Image uploaded", "url": image_url}
+
+
+# Chat System
+
+# Send a Message
+@app.post("/messages", response_model=MessagePublic)
+def send_message(
+    msg_data: MessageCreate,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    new_msg = Message(
+        content=msg_data.content,
+        sender_id=current_user.id,
+        receiver_id=msg_data.receiver_id,
+        timestamp=datetime.utcnow().isoformat()
+    )
+    session.add(new_msg)
+    session.commit()
+    session.refresh(new_msg)
+    return new_msg
+
+# Get All Conversation
+
+@app.get("/messages/all", response_model=list[MessagePublic])
+def get_all_my_messages(
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    # Get any message where I am sender OR receiver
+    statement = select(Message).where(
+        or_(Message.sender_id == current_user.id, Message.receiver_id == current_user.id)
+    )
+    return session.exec(statement).all()
+
+# Get Conversation with a specific neighbor
+@app.get("/messages/{other_user_id}", response_model=list[MessagePublic])
+def get_conversation(
+    other_user_id: str, # UUID string
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    # We want messages where:
+    # (Sender is ME and Receiver is THEM) OR (Sender is THEM and Receiver is ME)
+    statement = select(Message).where(
+        or_(
+            (Message.sender_id == current_user.id) & (Message.receiver_id == other_user_id),
+            (Message.sender_id == other_user_id) & (Message.receiver_id == current_user.id)
+        )
+    ).order_by(Message.timestamp)
+    
+    return session.exec(statement).all()
+
+
+
+# Resolve & Review Endpoint
+
+@app.post("/requests/{request_id}/resolve_with_review")
+def resolve_and_review(
+    request_id: UUID,
+    review_data: ReviewCreate,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    # 1. Fetch the request
+    request = session.get(HelpRequest, request_id)
+    if not request:
+        raise HTTPException(status_code=404, detail="Request not found")
+        
+    # 2. Validate: Only the requester can do this
+    if request.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not your request")
+        
+    # 3. Validate: Is there actually a helper?
+    if not request.helper_id:
+        raise HTTPException(status_code=400, detail="No one helped you, so you can't review anyone!")
+
+    # 4. Create the Review
+    new_review = Review(
+        rating=review_data.rating,
+        comment=review_data.comment,
+        reviewer_id=current_user.id,
+        reviewee_id=request.helper_id, # The person getting the stars
+        timestamp=datetime.utcnow().isoformat()
+    )
+    
+    # 5. Mark Request as Resolved
+    request.status = "resolved"
+    
+    session.add(new_review)
+    session.add(request)
+    session.commit()
+    
+    return {"message": "Request resolved and review submitted!"}
+
+
+# get user reviews
+
+@app.get("/users/{user_id}/reviews")
+def get_user_reviews(
+    user_id: str,
+    session: Session = Depends(get_session)
+):
+    # Convert string ID to UUID safely
+    try:
+        target_uuid = UUID(user_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid UUID format")
+
+    # Fetch reviews (Compare UUID to UUID)
+    statement = select(Review).where(Review.reviewee_id == target_uuid)
+    reviews = session.exec(statement).all()
+    
+    return reviews
+
+

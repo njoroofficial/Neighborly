@@ -46,7 +46,14 @@ export default async function Dashboard() {
   });
   const myRequests = myRequestsRes.ok ? await myRequestsRes.json() : [];
 
-  // 5. Render the Client Shell
+  // 5. Fetch Chat History
+  const chatRes = await fetch("http://127.0.0.1:8000/messages/all", {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+  const messages = chatRes.ok ? await chatRes.json() : [];
+
+  // 6. Render the Client Shell
   return (
     <DashboardShell
       user={user}
@@ -54,6 +61,7 @@ export default async function Dashboard() {
       requests={requests}
       myRequests={myRequests}
       token={token}
+      messages={messages}
     />
   );
 }

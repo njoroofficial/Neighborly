@@ -41,3 +41,21 @@ class RequestPublic(BaseModel):
     user_id: UUID
     latitude: float
     longitude: float
+
+# Incoming Message
+class MessageCreate(BaseModel):
+    content: str
+    receiver_id: UUID
+
+# Outgoing Message (What the frontend sees)
+class MessagePublic(BaseModel):
+    id: int
+    content: str
+    timestamp: str
+    sender_id: UUID
+    receiver_id: UUID
+
+# creating reviews
+class ReviewCreate(BaseModel):
+    rating: int
+    comment: str
