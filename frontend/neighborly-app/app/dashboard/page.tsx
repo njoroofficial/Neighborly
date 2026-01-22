@@ -53,6 +53,7 @@ export default async function Dashboard() {
       neighbors={neighbors}
       requests={requests}
       myRequests={myRequests}
+      token={token}
     />
   );
 }

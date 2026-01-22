@@ -17,12 +17,14 @@ import {
 import { acceptRequestAction } from "@/app/actions/requests";
 import { resolveRequestAction } from "@/app/actions/requests";
 import { useRouter } from "next/navigation";
+import ProfileSettings from "@/components/ProfileSettings";
 
 interface DashboardShellProps {
   user: any;
   neighbors: any[];
   requests: any[];
   myRequests: any[];
+  token: string;
 }
 
 export default function DashboardShell({
@@ -30,6 +32,7 @@ export default function DashboardShell({
   neighbors,
   requests,
   myRequests,
+  token,
 }: DashboardShellProps) {
   const router = useRouter();
   // State to track which neighbor is selected
@@ -82,7 +85,7 @@ export default function DashboardShell({
           <p className="text-slate-500">Welcome back, {user.name} 👋</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline">Settings</Button>
+          <ProfileSettings token={token} />
           <CreateRequest />
         </div>
       </div>
@@ -128,9 +131,17 @@ export default function DashboardShell({
           </CardHeader>
           <CardContent>
             <div className="flex flex-col items-center gap-3">
-              <Avatar className="h-16 w-16">
+              <Avatar className="h-16 w-16 overflow-hidden rounded-full border border-slate-200">
+                {/* Logic: If user.profile_image exists, use it. Else, use DiceBear. */}
                 <AvatarImage
-                  src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`}
+                  // We append ?t=Date.now() to force a reload
+                  src={
+                    user.profile_image
+                      ? `${user.profile_image}?t=${new Date().getTime()}`
+                      : `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`
+                  }
+                  // This CSS class makes it resize and crop perfectly into the circle
+                  className="object-cover h-full w-full"
                 />
                 <AvatarFallback>{user.name[0]}</AvatarFallback>
               </Avatar>
@@ -174,11 +185,19 @@ export default function DashboardShell({
             <div className="flex flex-col gap-6 mt-6">
               {/* Header Profile */}
               <div className="flex flex-col items-center">
-                <Avatar className="h-24 w-24 mb-4 border-4 border-slate-100">
+                <Avatar className="h-16 w-16 overflow-hidden rounded-full border border-slate-200">
+                  {/* Logic: If user.profile_image exists, use it. Else, use DiceBear. */}
                   <AvatarImage
-                    src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${selectedNeighbor.email}`}
+                    // We append ?t=Date.now() to force a reload
+                    src={
+                      selectedNeighbor.profile_image
+                        ? `${selectedNeighbor.profile_image}?t=${new Date().getTime()}`
+                        : `https://api.dicebear.com/7.x/avataaars/svg?seed=${selectedNeighbor.email}`
+                    }
+                    // This CSS class makes it resize and crop perfectly into the circle
+                    className="object-cover h-full w-full"
                   />
-                  <AvatarFallback>{selectedNeighbor.name[0]}</AvatarFallback>
+                  <AvatarFallback>{user.name[0]}</AvatarFallback>
                 </Avatar>
                 <SheetTitle className="text-2xl">
                   {selectedNeighbor.name}

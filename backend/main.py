@@ -9,7 +9,11 @@ from auth.deps import get_current_user
 import math
 from datetime import datetime
 from uuid import UUID
-
+from fastapi.staticfiles import StaticFiles
+from fastapi import UploadFile, File 
+import shutil
+import os
+from fastapi.middleware.cors import CORSMiddleware
 
 
 # 1. The Startup Event
@@ -23,8 +27,26 @@ async def lifespan(app: FastAPI):
     # Shutdown: Nothing needed here!
     
     
-
 app = FastAPI(lifespan=lifespan)
+
+
+# CORS MIDDLEWARE
+
+origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"], # Allow all methods (POST, GET, PATCH, etc.)
+    allow_headers=["*"], # Allow all headers (Authorization, etc.)
+)
+
+# Mount the static directory
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # 2. A Simple Health Check
 # Just to make sure the API is talking to us.
@@ -256,3 +278,33 @@ def resolve_request(
     session.add(request)
     session.commit()
     return {"message": "Request resolved!"}
+
+
+# Upload Profile Image
+
+@app.post("/users/image")
+def upload_profile_image(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    # 1. Create a safe filename (using user ID to avoid collisions)
+    # We use the user's UUID + the file extension
+    file_extension = file.filename.split(".")[-1]
+    filename = f"{current_user.id}.{file_extension}"
+    file_location = f"static/images/{filename}"
+    
+    # 2. Save the file to disk
+    with open(file_location, "wb+") as file_object:
+        shutil.copyfileobj(file.file, file_object)
+    
+    # 3. Update the User DB record
+    # We store the full URL path so the frontend can just use it
+    image_url = f"http://127.0.0.1:8000/static/images/{filename}"
+    current_user.profile_image = image_url
+    
+    session.add(current_user)
+    session.commit()
+    session.refresh(current_user)
+    
+    return {"message": "Image uploaded", "url": image_url}
