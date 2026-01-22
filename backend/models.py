@@ -1,6 +1,8 @@
 from typing import Optional
 from uuid import UUID, uuid4
 from sqlmodel import Field, SQLModel
+from sqlalchemy import Column, Integer, CheckConstraint
+from pydantic import field_validator
 
 # 1. The User Blueprint
 class User(SQLModel, table=True):
@@ -41,10 +43,21 @@ class Message(SQLModel, table=True):
     receiver_id: UUID = Field(foreign_key="user.id")
 
 class Review(SQLModel, table=True):
+    __table_args__ = (
+        CheckConstraint("rating >= 1 AND rating <= 5", name="rating_range"),
+    )
+    
     id: Optional[int] = Field(default=None, primary_key=True)
-    rating: int # 1 to 5
+    rating: int = Field(sa_column=Column(Integer, nullable=False))  # 1 to 5
     comment: str
     reviewer_id: UUID = Field(foreign_key="user.id")
     reviewee_id: UUID = Field(foreign_key="user.id") # The person being reviewed
     timestamp: str
+    
+    @field_validator("rating")
+    @classmethod
+    def validate_rating(cls, v: int) -> int:
+        if v < 1 or v > 5:
+            raise ValueError("Rating must be between 1 and 5")
+        return v
     

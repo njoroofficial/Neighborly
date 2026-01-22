@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from uuid import UUID
 
 # UserLogin: What we expect for /login
@@ -57,5 +57,5 @@ class MessagePublic(BaseModel):
 
 # creating reviews
 class ReviewCreate(BaseModel):
-    rating: int
+    rating: int = Field(..., ge=1, le=5, description="Rating must be between 1 and 5")
     comment: str

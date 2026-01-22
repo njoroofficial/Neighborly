@@ -350,12 +350,18 @@ def get_conversation(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
+    # Convert string ID to UUID safely
+    try:
+        other_uuid = UUID(other_user_id)
+    except ValueError as err:
+        raise HTTPException(status_code=400, detail="Invalid UUID format") from err
+    
     # We want messages where:
     # (Sender is ME and Receiver is THEM) OR (Sender is THEM and Receiver is ME)
     statement = select(Message).where(
         or_(
-            (Message.sender_id == current_user.id) & (Message.receiver_id == other_user_id),
-            (Message.sender_id == other_user_id) & (Message.receiver_id == current_user.id)
+            (Message.sender_id == current_user.id) & (Message.receiver_id == other_uuid),
+            (Message.sender_id == other_uuid) & (Message.receiver_id == current_user.id)
         )
     ).order_by(Message.timestamp)
     
@@ -414,8 +420,8 @@ def get_user_reviews(
     # Convert string ID to UUID safely
     try:
         target_uuid = UUID(user_id)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid UUID format")
+    except ValueError as err:
+        raise HTTPException(status_code=400, detail="Invalid UUID format") from err
 
     # Fetch reviews (Compare UUID to UUID)
     statement = select(Review).where(Review.reviewee_id == target_uuid)

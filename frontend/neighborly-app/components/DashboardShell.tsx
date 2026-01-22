@@ -74,6 +74,11 @@ export default function DashboardShell({
     try {
       const res = await fetch(
         `http://127.0.0.1:8000/users/${selectedNeighbor.id}/reviews`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
       );
       if (res.ok) {
         setReviews(await res.json());
