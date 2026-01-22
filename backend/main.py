@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Depends
-from sqlmodel import Session, select
+from sqlmodel import Session, select, or_
 from database import create_db_and_tables, get_session
 from models import User, HelpRequest
 from schemas import UserCreate, UserLogin, UserPublic, RequestCreate, RequestPublic
@@ -8,7 +8,12 @@ from auth.security import hash_password, verify_password, create_access_token
 from auth.deps import get_current_user
 import math
 from datetime import datetime
-
+from uuid import UUID
+from fastapi.staticfiles import StaticFiles
+from fastapi import UploadFile, File 
+import shutil
+import os
+from fastapi.middleware.cors import CORSMiddleware
 
 
 # 1. The Startup Event
@@ -22,8 +27,26 @@ async def lifespan(app: FastAPI):
     # Shutdown: Nothing needed here!
     
     
-
 app = FastAPI(lifespan=lifespan)
+
+
+# CORS MIDDLEWARE
+
+origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"], # Allow all methods (POST, GET, PATCH, etc.)
+    allow_headers=["*"], # Allow all headers (Authorization, etc.)
+)
+
+# Mount the static directory
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # 2. A Simple Health Check
 # Just to make sure the API is talking to us.
@@ -163,6 +186,16 @@ def create_request(
     session.refresh(new_request)
     return new_request
 
+# Get my own request
+
+@app.get("/requests/me", response_model=list[RequestPublic])
+def read_my_requests(
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    statement = select(HelpRequest).where(HelpRequest.user_id == current_user.id)
+    return session.exec(statement).all()
+
 
 # Get Nearby Requests
 
@@ -172,8 +205,11 @@ def read_nearby_requests(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    # Get all open requests
-    statement = select(HelpRequest).where(HelpRequest.status == "open")
+    # Get all open or in progress requests
+    
+    statement = select(HelpRequest).where(
+        or_(HelpRequest.status == "open", HelpRequest.status == "in_progress")
+    )
     all_requests = session.exec(statement).all()
     
     nearby_requests = []
@@ -187,3 +223,88 @@ def read_nearby_requests(
             nearby_requests.append(req)
             
     return nearby_requests
+
+
+# Accept Help Request
+
+@app.patch("/requests/{request_id}/accept")
+def accept_request(
+    request_id: UUID,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    # 1. Find the request
+    request = session.get(HelpRequest, request_id)
+    
+    if not request:
+        raise HTTPException(status_code=404, detail="Request not found")
+
+    # 2. Validation
+    if request.status != "open":
+        raise HTTPException(status_code=400, detail="Request is already taken!")
+    
+    if request.user_id == current_user.id:
+        raise HTTPException(status_code=400, detail="You cannot help yourself!")
+
+    # 3. Update the request
+    request.status = "in_progress"
+    request.helper_id = current_user.id
+    
+    session.add(request)
+    session.commit()
+    session.refresh(request)
+    
+    return {"message": "Request accepted!", "status": "in_progress"}
+
+
+# Resolve Help Request
+
+@app.patch("/requests/{request_id}/resolve")
+def resolve_request(
+    request_id: UUID, 
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    request = session.get(HelpRequest, request_id)
+    if not request:
+        raise HTTPException(status_code=404, detail="Request not found")
+        
+    # Security Check: Only the person who ASKED for help can close it
+    if request.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the requester can resolve this.")
+
+    request.status = "resolved"
+    
+    session.add(request)
+    session.commit()
+    return {"message": "Request resolved!"}
+
+
+# Upload Profile Image
+
+@app.post("/users/image")
+def upload_profile_image(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    # 1. Create a safe filename (using user ID to avoid collisions)
+    # We use the user's UUID + the file extension
+    file_extension = file.filename.split(".")[-1]
+    filename = f"{current_user.id}.{file_extension}"
+    file_location = f"static/images/{filename}"
+    
+    # 2. Save the file to disk
+    with open(file_location, "wb+") as file_object:
+        shutil.copyfileobj(file.file, file_object)
+    
+    # 3. Update the User DB record
+    # We store the full URL path so the frontend can just use it
+    image_url = f"http://127.0.0.1:8000/static/images/{filename}"
+    current_user.profile_image = image_url
+    
+    session.add(current_user)
+    session.commit()
+    session.refresh(current_user)
+    
+    return {"message": "Image uploaded", "url": image_url}

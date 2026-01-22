@@ -12,6 +12,7 @@ class User(SQLModel, table=True):
     latitude: float
     longitude: float
     is_verified: bool = Field(default=False)
+    profile_image: Optional[str] = None # We will store the URL path here
 
 # The Task Blueprint
 class HelpRequest(SQLModel, table=True):
@@ -20,7 +21,10 @@ class HelpRequest(SQLModel, table=True):
     description: str
     status: str = "open" # open, in_progress, resolved
     created_at: str      # We'll store simple strings for now
+    # Who asked?
     user_id: Optional[UUID] = Field(default=None, foreign_key="user.id")
+    # Who is helping?
+    helper_id: Optional[UUID] = Field(default=None, foreign_key="user.id") 
     
     # Denormalization: Storing location directly on the request makes filtering faster
     latitude: float

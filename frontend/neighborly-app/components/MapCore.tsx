@@ -32,12 +32,25 @@ const requestIcon = L.icon({
   shadowSize: [41, 41],
 });
 
+// A Yellow Icon for "In Progress"
+const inProgressIcon = L.icon({
+  iconUrl:
+    "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-orange.png", // Using orange as yellow is hard to see
+  shadowUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png",
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
+});
+
 interface MapProps {
   lat: number;
   lng: number;
   neighbors?: any[];
   requests?: any[];
   onNeighborClick?: (neighbor: any) => void;
+  onRequestAccept?: (id: number) => void;
 }
 
 export default function MapCore({
@@ -46,6 +59,7 @@ export default function MapCore({
   neighbors = [],
   requests = [],
   onNeighborClick,
+  onRequestAccept,
 }: MapProps) {
   return (
     <MapContainer
@@ -84,7 +98,7 @@ export default function MapCore({
         <Marker
           key={`req-${req.id}`}
           position={[req.latitude, req.longitude]}
-          icon={requestIcon}
+          icon={req.status === "in_progress" ? inProgressIcon : requestIcon}
         >
           <Popup>
             <div className="text-center min-w-37.5">
@@ -92,9 +106,25 @@ export default function MapCore({
                 📢 {req.title}
               </strong>
               <p className="text-xs text-slate-600 mb-2">{req.description}</p>
-              <button className="bg-slate-900 text-white text-xs px-2 py-1 rounded w-full">
-                Offer Help
-              </button>
+
+              {/* Only show button if status is open */}
+              {req.status === "open" && (
+                <button
+                  className="bg-slate-900 text-white text-xs px-2 py-1 rounded w-full hover:bg-slate-700 transition-colors"
+                  onClick={() => {
+                    if (onRequestAccept) onRequestAccept(req.id);
+                  }}
+                >
+                  Offer Help ✋
+                </button>
+              )}
+
+              {/* If it's already taken, show status */}
+              {req.status === "in_progress" && (
+                <div className="text-xs text-amber-600 font-bold border border-amber-200 bg-amber-50 rounded px-1">
+                  ⚠ In Progress
+                </div>
+              )}
             </div>
           </Popup>
         </Marker>

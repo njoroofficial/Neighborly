@@ -18,6 +18,7 @@ interface MapProps {
   neighbors?: any[];
   requests?: any[];
   onNeighborClick?: (neighbor: any) => void;
+  onRequestAccept?: (id: number) => void;
 }
 
 // 2. We export a plain component that simply renders the dynamic one

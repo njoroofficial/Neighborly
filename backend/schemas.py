@@ -24,6 +24,7 @@ class UserPublic(BaseModel):
     is_verified: bool
     latitude: float  
     longitude: float
+    profile_image: str | None = None
 
 # Incoming Data (What the user types)
 class RequestCreate(BaseModel):
