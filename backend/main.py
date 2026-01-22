@@ -233,3 +233,26 @@ def accept_request(
     session.refresh(request)
     
     return {"message": "Request accepted!", "status": "in_progress"}
+
+
+# Resolve Help Request
+
+@app.patch("/requests/{request_id}/resolve")
+def resolve_request(
+    request_id: UUID, 
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    request = session.get(HelpRequest, request_id)
+    if not request:
+        raise HTTPException(status_code=404, detail="Request not found")
+        
+    # Security Check: Only the person who ASKED for help can close it
+    if request.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the requester can resolve this.")
+
+    request.status = "resolved"
+    
+    session.add(request)
+    session.commit()
+    return {"message": "Request resolved!"}

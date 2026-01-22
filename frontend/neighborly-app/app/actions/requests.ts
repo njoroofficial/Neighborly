@@ -43,3 +43,24 @@ export async function acceptRequestAction(requestId: number) {
     return { success: false, error: "Failed to accept request" };
   }
 }
+
+export async function resolveRequestAction(requestId: string) {
+  const token = (await cookies()).get("session_token")?.value;
+
+  const res = await fetch(
+    `http://127.0.0.1:8000/requests/${requestId}/resolve`,
+    {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+
+  if (res.ok) {
+    revalidatePath("/dashboard");
+    return { success: true };
+  } else {
+    return { success: false, error: "Failed to resolve request" };
+  }
+}

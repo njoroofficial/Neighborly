@@ -15,6 +15,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { acceptRequestAction } from "@/app/actions/requests";
+import { resolveRequestAction } from "@/app/actions/requests";
 
 interface DashboardShellProps {
   user: any;
@@ -44,6 +45,17 @@ export default function DashboardShell({
     }
   }
 
+  // Handler for resolving a request
+  async function handleResolve(requestId: string) {
+    if (!confirm("Did your neighbor help you? This will close the request."))
+      return;
+
+    const result = await resolveRequestAction(requestId);
+    if (result.success) {
+      alert("Glad you got help! Request closed. 🎉");
+    }
+  }
+
   // Find if I have an active request
   const activeRequest = myRequests.find((r) => r.status !== "resolved");
 
@@ -62,32 +74,34 @@ export default function DashboardShell({
       </div>
 
       {/* ALERT BANNER: Only shows if I have a request! */}
+
       {activeRequest && (
-        <div className="max-w-4xl mx-auto mb-6">
-          <div
-            className={`p-4 rounded-lg border flex justify-between items-center ${
-              activeRequest.status === "open"
-                ? "bg-red-50 border-red-200 text-red-800" // Red if waiting
-                : "bg-orange-50 border-orange-200 text-orange-800" // Orange if help coming
-            }`}
-          >
-            <div>
-              <span className="font-bold mr-2">
-                {activeRequest.status === "open"
-                  ? "🔴 Help Needed:"
-                  : "🟠 Help on the way!"}
-              </span>
-              <span>{activeRequest.title}</span>
-            </div>
-
-            {activeRequest.status === "in_progress" && (
-              <div className="text-sm font-semibold">
-                A neighbor is responding... 🏃
-              </div>
-            )}
-
-            {/* We can add a "Resolve/Cancel" button here later */}
+        <div
+          className={`p-4 rounded-lg border flex justify-between items-center ${
+            activeRequest.status === "open"
+              ? "bg-red-50 border-red-200 text-red-800"
+              : "bg-orange-50 border-orange-200 text-orange-800"
+          }`}
+        >
+          {/* ... Left side text (Help Needed / On the way) ... */}
+          <div>
+            <span className="font-bold mr-2">
+              {activeRequest.status === "open"
+                ? "🔴 Help Needed:"
+                : "🟠 Help on the way!"}
+            </span>
+            <span>{activeRequest.title}</span>
           </div>
+
+          {/* NEW: The Resolve Button */}
+          <Button
+            size="sm"
+            variant="outline"
+            className="bg-white hover:bg-slate-100 border-slate-300"
+            onClick={() => handleResolve(activeRequest.id)}
+          >
+            ✅ Mark as Resolved
+          </Button>
         </div>
       )}
 
