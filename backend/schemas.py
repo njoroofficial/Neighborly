@@ -54,3 +54,8 @@ class MessagePublic(BaseModel):
     timestamp: str
     sender_id: UUID
     receiver_id: UUID
+
+# creating reviews
+class ReviewCreate(BaseModel):
+    rating: int
+    comment: str

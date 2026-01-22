@@ -15,11 +15,20 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { acceptRequestAction } from "@/app/actions/requests";
-import { resolveRequestAction } from "@/app/actions/requests";
 import { useRouter } from "next/navigation";
 import ProfileSettings from "@/components/ProfileSettings";
 import { sendMessageAction } from "@/app/actions/chat";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { resolveWithReviewAction } from "@/app/actions/requests";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 interface DashboardShellProps {
   user: any;
@@ -42,18 +51,26 @@ export default function DashboardShell({
 
   // --- STATE MANAGEMENT ---
   const [selectedNeighbor, setSelectedNeighbor] = useState<any | null>(null);
+
+  // View Toggles
   const [isChatting, setIsChatting] = useState(false);
   const [viewingHistory, setViewingHistory] = useState(false);
   const [reviews, setReviews] = useState<any[]>([]);
 
+  // Resolve Modal State
+  const [resolveModalOpen, setResolveModalOpen] = useState(false);
+  const [requestToResolve, setRequestToResolve] = useState<string | null>(null);
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
   // --- ACTIONS ---
 
-  // Function to load reviews
+  // 1. Load Reviews
   async function loadHistory() {
     if (!selectedNeighbor) return;
     setViewingHistory(true); // Switch view
 
-    // Fetch from backend
     try {
       const res = await fetch(
         `http://127.0.0.1:8000/users/${selectedNeighbor.id}/reviews`,
@@ -66,7 +83,7 @@ export default function DashboardShell({
     }
   }
 
-  // Filter messages for the selected neighbor
+  // 2. Chat Logic
   const conversation = selectedNeighbor
     ? messages
         .filter(
@@ -86,11 +103,11 @@ export default function DashboardShell({
     if (!text || !selectedNeighbor) return;
     await sendMessageAction(text, selectedNeighbor.id);
 
-    // Reset form manually
     const form = document.getElementById("chat-form") as HTMLFormElement;
     if (form) form.reset();
   }
 
+  // 3. Request Logic
   async function handleAcceptRequest(requestId: number) {
     const result = await acceptRequestAction(requestId);
     if (result.success) {
@@ -100,20 +117,36 @@ export default function DashboardShell({
     }
   }
 
-  async function handleResolve(requestId: string) {
-    if (!confirm("Did your neighbor help you? This will close the request."))
-      return;
-
-    const result = await resolveRequestAction(requestId);
-    if (result.success) {
-      alert("Glad you got help! Request closed. 🎉");
-    }
+  // Open the Modal (Don't submit yet)
+  function initiateResolve(requestId: string) {
+    setRequestToResolve(requestId);
+    setResolveModalOpen(true);
+    setRating(5);
+    setComment("");
   }
 
-  // Find active requests
+  // Actually Submit to Backend
+  async function submitReview() {
+    if (!requestToResolve) return;
+    setSubmitting(true);
+
+    const res = await resolveWithReviewAction(
+      requestToResolve,
+      rating,
+      comment,
+    );
+
+    if (res.success) {
+      alert("Review submitted! Request closed. 🌟");
+      setResolveModalOpen(false);
+    } else {
+      alert("Error submitting review.");
+    }
+    setSubmitting(false);
+  }
+
   const activeRequests = myRequests.filter((r) => r.status !== "resolved");
 
-  // Heartbeat Effect
   useEffect(() => {
     const interval = setInterval(() => {
       router.refresh();
@@ -154,11 +187,13 @@ export default function DashboardShell({
               </span>
               <span>{req.title}</span>
             </div>
+
+            {/* BUTTON TRIGGERS MODAL */}
             <Button
               size="sm"
               variant="outline"
               className="bg-white hover:bg-slate-100 border-slate-300"
-              onClick={() => handleResolve(req.id)}
+              onClick={() => initiateResolve(req.id)}
             >
               ✅ Mark as Resolved
             </Button>
@@ -215,14 +250,14 @@ export default function DashboardShell({
         </Card>
       </div>
 
-      {/* THE SLIDE-OUT PROFILE SHEET */}
+      {/* THE SLIDE-OUT SHEET (Handles 3 Views) */}
       <Sheet
         open={!!selectedNeighbor}
         onOpenChange={(open) => {
           if (!open) {
             setSelectedNeighbor(null);
             setIsChatting(false);
-            setViewingHistory(false); // Reset history view on close
+            setViewingHistory(false);
           }
         }}
       >
@@ -230,9 +265,7 @@ export default function DashboardShell({
           {selectedNeighbor && (
             <>
               {isChatting ? (
-                // --------------------------------------------------
-                // VIEW 1: THE CHAT WINDOW 💬
-                // --------------------------------------------------
+                // --- VIEW 1: CHAT ---
                 <div className="flex flex-col h-full mt-6">
                   <div className="flex items-center gap-2 mb-4">
                     <Button
@@ -290,16 +323,14 @@ export default function DashboardShell({
                   </form>
                 </div>
               ) : viewingHistory ? (
-                // --------------------------------------------------
-                // VIEW 2: THE HISTORY & REVIEWS 📜 (NEW)
-                // --------------------------------------------------
+                // --- VIEW 2: HISTORY & REVIEWS ---
                 <div className="flex flex-col h-full mt-6">
                   <div className="flex items-center gap-2 mb-4">
                     <Button
                       variant="ghost"
                       size="sm"
                       className="-ml-2 px-2"
-                      onClick={() => setViewingHistory(false)} // Go back to profile
+                      onClick={() => setViewingHistory(false)}
                     >
                       ← Back
                     </Button>
@@ -310,7 +341,6 @@ export default function DashboardShell({
                     {reviews.length === 0 ? (
                       <div className="text-center py-10 text-slate-500">
                         <p>No reviews yet.</p>
-                        <p className="text-xs mt-1">This neighbor is new!</p>
                       </div>
                     ) : (
                       reviews.map((r) => (
@@ -338,9 +368,7 @@ export default function DashboardShell({
                   </div>
                 </div>
               ) : (
-                // --------------------------------------------------
-                // VIEW 3: THE PROFILE CARD (Default) 👤
-                // --------------------------------------------------
+                // --- VIEW 3: PROFILE (DEFAULT) ---
                 <div className="flex flex-col gap-6 mt-6">
                   <div className="flex flex-col items-center">
                     <Avatar className="h-24 w-24 overflow-hidden rounded-full border-4 border-slate-100">
@@ -389,8 +417,7 @@ export default function DashboardShell({
                   </div>
 
                   <SheetDescription className="text-center">
-                    Member since 2024. Active in the Nairobi Westlands
-                    community.
+                    Member since 2024. Active in the community.
                   </SheetDescription>
 
                   <div className="mt-auto flex flex-col gap-3">
@@ -403,7 +430,7 @@ export default function DashboardShell({
                     <Button
                       variant="outline"
                       className="w-full"
-                      onClick={loadHistory} // <--- CONNECTED HERE
+                      onClick={loadHistory}
                     >
                       View Full History
                     </Button>
@@ -414,6 +441,73 @@ export default function DashboardShell({
           )}
         </SheetContent>
       </Sheet>
+
+      {/* REVIEW DIALOG (Added to the end of return) */}
+      <Dialog open={resolveModalOpen} onOpenChange={setResolveModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Complete Request & Review</DialogTitle>
+            <DialogDescription>
+              Please rate your experience with your neighbor to close this
+              request.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4 space-y-4">
+            {/* STAR RATING UI */}
+            <div className="flex flex-col items-center gap-2">
+              <span className="text-sm font-semibold text-slate-700">
+                Tap to Rate:
+              </span>
+              <div className="flex gap-1">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => setRating(star)}
+                    className={`text-3xl focus:outline-none transition-transform hover:scale-110 ${
+                      star <= rating ? "text-yellow-400" : "text-slate-200"
+                    }`}
+                  >
+                    ★
+                  </button>
+                ))}
+              </div>
+              <span className="text-xs text-slate-500">
+                {rating === 5
+                  ? "Excellent!"
+                  : rating === 4
+                    ? "Great"
+                    : rating === 3
+                      ? "Good"
+                      : "Needs Improvement"}
+              </span>
+            </div>
+
+            {/* COMMENT BOX */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Comment</label>
+              <Textarea
+                placeholder="How did they help? (e.g. Arrived quickly, very friendly!)"
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setResolveModalOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button onClick={submitReview} disabled={submitting}>
+              {submitting ? "Submitting..." : "Submit Review & Close"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

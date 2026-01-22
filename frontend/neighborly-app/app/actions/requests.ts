@@ -43,17 +43,22 @@ export async function acceptRequestAction(requestId: number) {
     return { success: false, error: "Failed to accept request" };
   }
 }
-
-export async function resolveRequestAction(requestId: string) {
+export async function resolveWithReviewAction(
+  requestId: string,
+  rating: number,
+  comment: string,
+) {
   const token = (await cookies()).get("session_token")?.value;
 
   const res = await fetch(
-    `http://127.0.0.1:8000/requests/${requestId}/resolve`,
+    `http://127.0.0.1:8000/requests/${requestId}/resolve_with_review`,
     {
-      method: "PATCH",
+      method: "POST",
       headers: {
+        "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
+      body: JSON.stringify({ rating, comment }),
     },
   );
 
@@ -61,6 +66,27 @@ export async function resolveRequestAction(requestId: string) {
     revalidatePath("/dashboard");
     return { success: true };
   } else {
-    return { success: false, error: "Failed to resolve request" };
+    return { success: false, error: "Failed to submit review" };
   }
 }
+
+// export async function resolveRequestAction(requestId: string) {
+//   const token = (await cookies()).get("session_token")?.value;
+
+//   const res = await fetch(
+//     `http://127.0.0.1:8000/requests/${requestId}/resolve`,
+//     {
+//       method: "PATCH",
+//       headers: {
+//         Authorization: `Bearer ${token}`,
+//       },
+//     },
+//   );
+
+//   if (res.ok) {
+//     revalidatePath("/dashboard");
+//     return { success: true };
+//   } else {
+//     return { success: false, error: "Failed to resolve request" };
+//   }
+// }
