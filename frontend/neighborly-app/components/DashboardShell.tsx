@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Map from "@/components/Map";
 import CreateRequest from "@/components/CreateRequest";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/sheet";
 import { acceptRequestAction } from "@/app/actions/requests";
 import { resolveRequestAction } from "@/app/actions/requests";
+import { useRouter } from "next/navigation";
 
 interface DashboardShellProps {
   user: any;
@@ -30,6 +31,7 @@ export default function DashboardShell({
   requests,
   myRequests,
 }: DashboardShellProps) {
+  const router = useRouter();
   // State to track which neighbor is selected
   const [selectedNeighbor, setSelectedNeighbor] = useState<any | null>(null);
 
@@ -58,6 +60,18 @@ export default function DashboardShell({
 
   // Find if I have an active request
   const activeRequest = myRequests.find((r) => r.status !== "resolved");
+
+  // The Heartbeat Effect 💓
+  useEffect(() => {
+    // Set up a timer to refresh data every 5 seconds
+    const interval = setInterval(() => {
+      router.refresh();
+      // This re-runs the page.tsx fetches without reloading the browser window!
+    }, 5000);
+
+    // Cleanup the timer when the user leaves the page
+    return () => clearInterval(interval);
+  }, [router]);
 
   return (
     <div className="min-h-screen bg-slate-50 p-8">
