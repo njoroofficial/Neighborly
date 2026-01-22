@@ -14,20 +14,38 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
+import { acceptRequestAction } from "@/app/actions/requests";
 
 interface DashboardShellProps {
   user: any;
   neighbors: any[];
   requests: any[];
+  myRequests: any[];
 }
 
 export default function DashboardShell({
   user,
   neighbors,
   requests,
+  myRequests,
 }: DashboardShellProps) {
   // State to track which neighbor is selected
   const [selectedNeighbor, setSelectedNeighbor] = useState<any | null>(null);
+
+  // Handler for accepting requests
+  async function handleAcceptRequest(requestId: number) {
+    const result = await acceptRequestAction(requestId);
+    if (result.success) {
+      alert("You have accepted this request! 🦸‍♂️");
+      // The map will auto-refresh thanks to revalidatePath,
+      // but for instant feedback, you might want to optimistic update (optional)
+    } else {
+      alert("Could not accept request.");
+    }
+  }
+
+  // Find if I have an active request
+  const activeRequest = myRequests.find((r) => r.status !== "resolved");
 
   return (
     <div className="min-h-screen bg-slate-50 p-8">
@@ -42,6 +60,36 @@ export default function DashboardShell({
           <CreateRequest />
         </div>
       </div>
+
+      {/* ALERT BANNER: Only shows if I have a request! */}
+      {activeRequest && (
+        <div className="max-w-4xl mx-auto mb-6">
+          <div
+            className={`p-4 rounded-lg border flex justify-between items-center ${
+              activeRequest.status === "open"
+                ? "bg-red-50 border-red-200 text-red-800" // Red if waiting
+                : "bg-orange-50 border-orange-200 text-orange-800" // Orange if help coming
+            }`}
+          >
+            <div>
+              <span className="font-bold mr-2">
+                {activeRequest.status === "open"
+                  ? "🔴 Help Needed:"
+                  : "🟠 Help on the way!"}
+              </span>
+              <span>{activeRequest.title}</span>
+            </div>
+
+            {activeRequest.status === "in_progress" && (
+              <div className="text-sm font-semibold">
+                A neighbor is responding... 🏃
+              </div>
+            )}
+
+            {/* We can add a "Resolve/Cancel" button here later */}
+          </div>
+        </div>
+      )}
 
       {/* GRID LAYOUT */}
       <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -82,6 +130,7 @@ export default function DashboardShell({
               requests={requests}
               // We pass the "setter" function down to the map
               onNeighborClick={setSelectedNeighbor}
+              onRequestAccept={handleAcceptRequest}
             />
           </div>
         </Card>

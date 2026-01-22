@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Depends
-from sqlmodel import Session, select
+from sqlmodel import Session, select, or_
 from database import create_db_and_tables, get_session
 from models import User, HelpRequest
 from schemas import UserCreate, UserLogin, UserPublic, RequestCreate, RequestPublic
@@ -8,6 +8,7 @@ from auth.security import hash_password, verify_password, create_access_token
 from auth.deps import get_current_user
 import math
 from datetime import datetime
+from uuid import UUID
 
 
 
@@ -163,6 +164,16 @@ def create_request(
     session.refresh(new_request)
     return new_request
 
+# Get my own request
+
+@app.get("/requests/me", response_model=list[RequestPublic])
+def read_my_requests(
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    statement = select(HelpRequest).where(HelpRequest.user_id == current_user.id)
+    return session.exec(statement).all()
+
 
 # Get Nearby Requests
 
@@ -172,8 +183,11 @@ def read_nearby_requests(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    # Get all open requests
-    statement = select(HelpRequest).where(HelpRequest.status == "open")
+    # Get all open or in progress requests
+    
+    statement = select(HelpRequest).where(
+        or_(HelpRequest.status == "open", HelpRequest.status == "in_progress")
+    )
     all_requests = session.exec(statement).all()
     
     nearby_requests = []
@@ -187,3 +201,35 @@ def read_nearby_requests(
             nearby_requests.append(req)
             
     return nearby_requests
+
+
+# Accept Help Request
+
+@app.patch("/requests/{request_id}/accept")
+def accept_request(
+    request_id: UUID,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    # 1. Find the request
+    request = session.get(HelpRequest, request_id)
+    
+    if not request:
+        raise HTTPException(status_code=404, detail="Request not found")
+
+    # 2. Validation
+    if request.status != "open":
+        raise HTTPException(status_code=400, detail="Request is already taken!")
+    
+    if request.user_id == current_user.id:
+        raise HTTPException(status_code=400, detail="You cannot help yourself!")
+
+    # 3. Update the request
+    request.status = "in_progress"
+    request.helper_id = current_user.id
+    
+    session.add(request)
+    session.commit()
+    session.refresh(request)
+    
+    return {"message": "Request accepted!", "status": "in_progress"}

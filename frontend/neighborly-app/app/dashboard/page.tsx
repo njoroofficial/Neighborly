@@ -39,8 +39,20 @@ export default async function Dashboard() {
   );
   const requests = requestsRes.ok ? await requestsRes.json() : [];
 
-  // 4. Render the Client Shell
+  // 4. NEW: Fetch MY requests (to track status)
+  const myRequestsRes = await fetch("http://127.0.0.1:8000/requests/me", {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+  const myRequests = myRequestsRes.ok ? await myRequestsRes.json() : [];
+
+  // 5. Render the Client Shell
   return (
-    <DashboardShell user={user} neighbors={neighbors} requests={requests} />
+    <DashboardShell
+      user={user}
+      neighbors={neighbors}
+      requests={requests}
+      myRequests={myRequests}
+    />
   );
 }
