@@ -92,8 +92,8 @@ export default function DashboardShell({
     }
   }
 
-  // Find if I have an active request
-  const activeRequest = myRequests.find((r) => r.status !== "resolved");
+  // Find if there are active request
+  const activeRequests = myRequests.filter((r) => r.status !== "resolved");
 
   // The Heartbeat Effect 💓
   useEffect(() => {
@@ -121,37 +121,40 @@ export default function DashboardShell({
         </div>
       </div>
 
-      {/* ALERT BANNER: Only shows if I have a request! */}
-
-      {activeRequest && (
-        <div
-          className={`p-4 rounded-lg border flex justify-between items-center ${
-            activeRequest.status === "open"
-              ? "bg-red-50 border-red-200 text-red-800"
-              : "bg-orange-50 border-orange-200 text-orange-800"
-          }`}
-        >
-          {/* ... Left side text (Help Needed / On the way) ... */}
-          <div>
-            <span className="font-bold mr-2">
-              {activeRequest.status === "open"
-                ? "🔴 Help Needed:"
-                : "🟠 Help on the way!"}
-            </span>
-            <span>{activeRequest.title}</span>
-          </div>
-
-          {/* NEW: The Resolve Button */}
-          <Button
-            size="sm"
-            variant="outline"
-            className="bg-white hover:bg-slate-100 border-slate-300"
-            onClick={() => handleResolve(activeRequest.id)}
+      {/* ALERT BANNERS: Loop through all active requests */}
+      <div className="flex flex-col gap-3 mb-6">
+        {activeRequests.map((req) => (
+          <div
+            key={req.id}
+            className={`p-4 rounded-lg border flex justify-between items-center ${
+              req.status === "open"
+                ? "bg-red-50 border-red-200 text-red-800"
+                : "bg-orange-50 border-orange-200 text-orange-800"
+            }`}
           >
-            ✅ Mark as Resolved
-          </Button>
-        </div>
-      )}
+            {/* Left side text */}
+            <div>
+              <span className="font-bold mr-2">
+                {req.status === "open"
+                  ? "🔴 Help Needed:"
+                  : "🟠 Help on the way!"}
+              </span>
+              <span>{req.title}</span>
+            </div>
+
+            {/* The Resolve Button */}
+            <Button
+              size="sm"
+              variant="outline"
+              className="bg-white hover:bg-slate-100 border-slate-300"
+              // IMPORTANT: Pass the specific req.id here
+              onClick={() => handleResolve(req.id)}
+            >
+              ✅ Mark as Resolved
+            </Button>
+          </div>
+        ))}
+      </div>
 
       {/* GRID LAYOUT */}
       <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
