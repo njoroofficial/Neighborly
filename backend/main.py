@@ -330,6 +330,19 @@ def send_message(
     session.refresh(new_msg)
     return new_msg
 
+# Get All Conversation
+
+@app.get("/messages/all", response_model=list[MessagePublic])
+def get_all_my_messages(
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    # Get any message where I am sender OR receiver
+    statement = select(Message).where(
+        or_(Message.sender_id == current_user.id, Message.receiver_id == current_user.id)
+    )
+    return session.exec(statement).all()
+
 # Get Conversation with a specific neighbor
 @app.get("/messages/{other_user_id}", response_model=list[MessagePublic])
 def get_conversation(
@@ -347,3 +360,4 @@ def get_conversation(
     ).order_by(Message.timestamp)
     
     return session.exec(statement).all()
+
