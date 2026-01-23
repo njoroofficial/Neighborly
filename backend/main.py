@@ -1,5 +1,5 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, WebSocket, WebSocketDisconnect
 from sqlmodel import Session, select, or_
 from database import create_db_and_tables, get_session
 from models import User, HelpRequest, Message, Review
@@ -16,7 +16,7 @@ import os
 from fastapi.middleware.cors import CORSMiddleware
 
 
-# 1. The Startup Event
+# The Startup Event
 # It runs ONE time when the server starts to make sure our tables exist.
 # The Lifespan Context Manager
 @asynccontextmanager
@@ -28,6 +28,28 @@ async def lifespan(app: FastAPI):
     
     
 app = FastAPI(lifespan=lifespan)
+
+# The websocket connection manager
+class ConnectionManager:
+    def __init__(self):
+        # A dictionary to hold active connections: {user_id: websocket}
+        self.active_connections: dict[str, WebSocket] = {}
+
+    async def connect(self, user_id: str, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections[user_id] = websocket
+
+    def disconnect(self, user_id: str):
+        if user_id in self.active_connections:
+            del self.active_connections[user_id]
+
+    async def send_personal_message(self, message: dict, user_id: str):
+        if user_id in self.active_connections:
+            websocket = self.active_connections[user_id]
+            # We send JSON data over the socket
+            await websocket.send_json(message)
+
+manager = ConnectionManager()
 
 
 # CORS MIDDLEWARE
@@ -48,7 +70,7 @@ app.add_middleware(
 # Mount the static directory
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# 2. A Simple Health Check
+# A Simple Health Check
 # Just to make sure the API is talking to us.
 @app.get("/")
 def read_root():
@@ -314,7 +336,7 @@ def upload_profile_image(
 
 # Send a Message
 @app.post("/messages", response_model=MessagePublic)
-def send_message(
+async def send_message( 
     msg_data: MessageCreate,
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
@@ -328,7 +350,25 @@ def send_message(
     session.add(new_msg)
     session.commit()
     session.refresh(new_msg)
+
+    # REAL-TIME NOTIFICATION ---
+    # We construct the message exactly how the frontend expects it
+    socket_data = {
+        "id": new_msg.id,
+        "content": new_msg.content,
+        "sender_id": str(new_msg.sender_id),
+        "receiver_id": str(new_msg.receiver_id),
+        "timestamp": new_msg.timestamp
+    }
+    
+    # Notify the Receiver (If they are online)
+    await manager.send_personal_message(socket_data, str(msg_data.receiver_id))
+    
+    # Notify the Sender (So my own chat updates instantly too!)
+    await manager.send_personal_message(socket_data, str(current_user.id))
+
     return new_msg
+
 
 # Get All Conversation
 
@@ -429,4 +469,14 @@ def get_user_reviews(
     
     return reviews
 
+# WebSocket Endpoint
 
+@app.websocket("/ws/{user_id}")
+async def websocket_endpoint(websocket: WebSocket, user_id: str):
+    await manager.connect(user_id, websocket)
+    try:
+        while True:
+            # Keep the connection alive
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(user_id)

@@ -46,12 +46,14 @@ export default function DashboardShell({
   requests,
   myRequests,
   token,
-  messages,
+  messages: initialMessages,
 }: DashboardShellProps) {
   const router = useRouter();
 
   // --- STATE MANAGEMENT ---
   const [selectedNeighbor, setSelectedNeighbor] = useState<any | null>(null);
+  // We initialize with the messages passed from the server
+  const [messages, setMessages] = useState(initialMessages);
 
   // View Toggles
   const [isChatting, setIsChatting] = useState(false);
@@ -107,6 +109,9 @@ export default function DashboardShell({
   async function handleSend(formData: FormData) {
     const text = formData.get("content") as string;
     if (!text || !selectedNeighbor) return;
+
+    // We just send the POST request.
+    // The Backend will save it AND push it back to us via WebSocket.
     await sendMessageAction(text, selectedNeighbor.id);
 
     const form = document.getElementById("chat-form") as HTMLFormElement;
@@ -153,12 +158,25 @@ export default function DashboardShell({
 
   const activeRequests = myRequests.filter((r) => r.status !== "resolved");
 
+  // REAL-TIME WEBSOCKET CONNECTION ⚡
   useEffect(() => {
-    const interval = setInterval(() => {
-      router.refresh();
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [router]);
+    // 1. Create Connection
+    // Note: We use ws:// for http and wss:// for https
+    const ws = new WebSocket(`ws://127.0.0.1:8000/ws/${user.id}`);
+
+    // 2. Listen for Messages
+    ws.onmessage = (event) => {
+      const newMsg = JSON.parse(event.data);
+
+      // Add the new message to our list!
+      setMessages((prev) => [...prev, newMsg]);
+    };
+
+    // 3. Cleanup (Close connection when we leave the page)
+    return () => {
+      ws.close();
+    };
+  }, [user.id]);
 
   return (
     <div className="min-h-screen bg-slate-50 p-8">
