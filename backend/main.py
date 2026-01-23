@@ -27,7 +27,12 @@ async def lifespan(app: FastAPI):
     # Shutdown: Nothing needed here!
     
     
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(
+    lifespan=lifespan,
+    title="Neighborly API",
+    description="A hyperlocal social network API for connecting neighbors",
+    version="1.0.0"
+)
 
 # The websocket connection manager
 class ConnectionManager:
@@ -53,15 +58,22 @@ manager = ConnectionManager()
 
 
 # CORS MIDDLEWARE
+# Allow frontend URLs from environment variable or defaults
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
 origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    FRONTEND_URL,
 ]
+
+# In production, you might want to be more restrictive
+# For now, allow all origins during development
+allowed_origins = origins if os.getenv("DATABASE_URL") else ["*"]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"], # Allow all methods (POST, GET, PATCH, etc.)
     allow_headers=["*"], # Allow all headers (Authorization, etc.)
@@ -321,8 +333,9 @@ def upload_profile_image(
         shutil.copyfileobj(file.file, file_object)
     
     # 3. Update the User DB record
-    # We store the full URL path so the frontend can just use it
-    image_url = f"http://127.0.0.1:8000/static/images/{filename}"
+    # Use environment variable for base URL in production
+    BASE_URL = os.getenv("BASE_URL", "http://127.0.0.1:8000")
+    image_url = f"{BASE_URL}/static/images/{filename}"
     current_user.profile_image = image_url
     
     session.add(current_user)

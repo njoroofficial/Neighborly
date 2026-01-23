@@ -12,6 +12,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useRouter } from "next/navigation";
+import { API_URL } from "@/lib/api";
 
 export default function ProfileSettings({ token }: { token: string }) {
   const [open, setOpen] = useState(false);
@@ -25,7 +26,7 @@ export default function ProfileSettings({ token }: { token: string }) {
     const formData = new FormData(e.currentTarget);
 
     // We fetch directly from client here because we are sending a File
-    const res = await fetch("http://127.0.0.1:8000/users/image", {
+    const res = await fetch(`${API_URL}/users/image`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,

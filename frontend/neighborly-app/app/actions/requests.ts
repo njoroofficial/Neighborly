@@ -3,13 +3,15 @@
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache"; // Crucial! Updates the page data
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+
 export async function createRequestAction(formData: FormData) {
   const title = formData.get("title");
   const description = formData.get("description");
 
   const token = (await cookies()).get("session_token")?.value;
 
-  await fetch("http://127.0.0.1:8000/requests", {
+  await fetch(`${API_URL}/requests`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -25,15 +27,12 @@ export async function createRequestAction(formData: FormData) {
 export async function acceptRequestAction(requestId: number) {
   const token = (await cookies()).get("session_token")?.value;
 
-  const res = await fetch(
-    `http://127.0.0.1:8000/requests/${requestId}/accept`,
-    {
-      method: "PATCH", // PATCH because we are updating part of the resource
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+  const res = await fetch(`${API_URL}/requests/${requestId}/accept`, {
+    method: "PATCH", // PATCH because we are updating part of the resource
+    headers: {
+      Authorization: `Bearer ${token}`,
     },
-  );
+  });
 
   if (res.ok) {
     // Refresh the map to show the updated status
@@ -51,7 +50,7 @@ export async function resolveWithReviewAction(
   const token = (await cookies()).get("session_token")?.value;
 
   const res = await fetch(
-    `http://127.0.0.1:8000/requests/${requestId}/resolve_with_review`,
+    `${API_URL}/requests/${requestId}/resolve_with_review`,
     {
       method: "POST",
       headers: {
