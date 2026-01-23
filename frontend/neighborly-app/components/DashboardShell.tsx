@@ -6,6 +6,7 @@ import CreateRequest from "@/components/CreateRequest";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Sheet,
@@ -30,6 +31,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { logoutAction } from "@/app/actions/auth";
+import { MessageSquare, History, ArrowLeft, MapPin } from "lucide-react";
 
 interface DashboardShellProps {
   user: any;
@@ -51,9 +53,8 @@ export default function DashboardShell({
   const router = useRouter();
 
   // --- STATE MANAGEMENT ---
-  const [selectedNeighbor, setSelectedNeighbor] = useState<any | null>(null);
-  // We initialize with the messages passed from the server
   const [messages, setMessages] = useState(initialMessages);
+  const [selectedNeighbor, setSelectedNeighbor] = useState<any | null>(null);
 
   // View Toggles
   const [isChatting, setIsChatting] = useState(false);
@@ -69,19 +70,31 @@ export default function DashboardShell({
 
   // --- ACTIONS ---
 
-  // 1. Load Reviews
+  // 1. WebSocket Connection ⚡
+  useEffect(() => {
+    // ws:// for localhost, wss:// for production
+    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+    // Connect to the backend WebSocket
+    const ws = new WebSocket(`${protocol}://127.0.0.1:8000/ws/${user.id}`);
+
+    ws.onmessage = (event) => {
+      const newMsg = JSON.parse(event.data);
+      setMessages((prev: any) => [...prev, newMsg]);
+    };
+
+    return () => {
+      ws.close();
+    };
+  }, [user.id]);
+
+  // 2. Load Reviews
   async function loadHistory() {
     if (!selectedNeighbor) return;
-    setViewingHistory(true); // Switch view
+    setViewingHistory(true);
 
     try {
       const res = await fetch(
         `http://127.0.0.1:8000/users/${selectedNeighbor.id}/reviews`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
       );
       if (res.ok) {
         setReviews(await res.json());
@@ -91,17 +104,17 @@ export default function DashboardShell({
     }
   }
 
-  // 2. Chat Logic
+  // 3. Chat Logic
   const conversation = selectedNeighbor
     ? messages
         .filter(
-          (m) =>
+          (m: any) =>
             (m.sender_id === user.id &&
               m.receiver_id === selectedNeighbor.id) ||
             (m.sender_id === selectedNeighbor.id && m.receiver_id === user.id),
         )
         .sort(
-          (a, b) =>
+          (a: any, b: any) =>
             new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
         )
     : [];
@@ -109,16 +122,13 @@ export default function DashboardShell({
   async function handleSend(formData: FormData) {
     const text = formData.get("content") as string;
     if (!text || !selectedNeighbor) return;
-
-    // We just send the POST request.
-    // The Backend will save it AND push it back to us via WebSocket.
     await sendMessageAction(text, selectedNeighbor.id);
 
     const form = document.getElementById("chat-form") as HTMLFormElement;
     if (form) form.reset();
   }
 
-  // 3. Request Logic
+  // 4. Request Logic
   async function handleAcceptRequest(requestId: number) {
     const result = await acceptRequestAction(requestId);
     if (result.success) {
@@ -128,7 +138,6 @@ export default function DashboardShell({
     }
   }
 
-  // Open the Modal (Don't submit yet)
   function initiateResolve(requestId: string) {
     setRequestToResolve(requestId);
     setResolveModalOpen(true);
@@ -136,7 +145,6 @@ export default function DashboardShell({
     setComment("");
   }
 
-  // Actually Submit to Backend
   async function submitReview() {
     if (!requestToResolve) return;
     setSubmitting(true);
@@ -158,38 +166,25 @@ export default function DashboardShell({
 
   const activeRequests = myRequests.filter((r) => r.status !== "resolved");
 
-  // REAL-TIME WEBSOCKET CONNECTION ⚡
-  useEffect(() => {
-    // 1. Create Connection
-    // Note: We use ws:// for http and wss:// for https
-    const ws = new WebSocket(`ws://127.0.0.1:8000/ws/${user.id}`);
-
-    // 2. Listen for Messages
-    ws.onmessage = (event) => {
-      const newMsg = JSON.parse(event.data);
-
-      // Add the new message to our list!
-      setMessages((prev) => [...prev, newMsg]);
-    };
-
-    // 3. Cleanup (Close connection when we leave the page)
-    return () => {
-      ws.close();
-    };
-  }, [user.id]);
-
   return (
-    <div className="min-h-screen bg-slate-50 p-8">
+    // Added pb-24 to make space for the mobile bottom bar
+    <div className="min-h-screen bg-slate-50 p-4 md:p-8 pb-32 md:pb-8">
       {/* HEADER */}
-      <div className="max-w-4xl mx-auto flex justify-between items-center mb-8">
+      <div className="max-w-4xl mx-auto flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Dashboard</h1>
-          <p className="text-slate-500">Welcome back, {user.name} 👋</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-slate-900">
+            Dashboard
+          </h1>
+          <p className="text-slate-500 text-sm md:text-base">
+            Welcome back, {user.name} 👋
+          </p>
         </div>
-        <div className="flex gap-2">
+
+        {/* DESKTOP BUTTONS (Hidden on Mobile) */}
+        <div className="hidden md:flex gap-2">
           <ProfileSettings token={token} />
           <CreateRequest />
-          {/* Log out */}
+          {/* logout button */}
           <Button variant="outline" onClick={() => logoutAction()}>
             Log Out
           </Button>
@@ -197,11 +192,11 @@ export default function DashboardShell({
       </div>
 
       {/* ALERT BANNERS */}
-      <div className="flex flex-col gap-3 mb-6">
+      <div className="flex flex-col gap-3 mb-6 max-w-4xl mx-auto">
         {activeRequests.map((req) => (
           <div
             key={req.id}
-            className={`p-4 rounded-lg border flex justify-between items-center ${
+            className={`p-4 rounded-lg border flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center ${
               req.status === "open"
                 ? "bg-red-50 border-red-200 text-red-800"
                 : "bg-orange-50 border-orange-200 text-orange-800"
@@ -216,11 +211,10 @@ export default function DashboardShell({
               <span>{req.title}</span>
             </div>
 
-            {/* BUTTON TRIGGERS MODAL */}
             <Button
               size="sm"
               variant="outline"
-              className="bg-white hover:bg-slate-100 border-slate-300"
+              className="bg-white hover:bg-slate-100 border-slate-300 w-full sm:w-auto"
               onClick={() => initiateResolve(req.id)}
             >
               ✅ Mark as Resolved
@@ -231,13 +225,14 @@ export default function DashboardShell({
 
       {/* GRID LAYOUT */}
       <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* LEFT: User Stats */}
-        <Card className="md:col-span-1">
-          <CardHeader>
+        {/* LEFT: User Stats (Hidden on mobile to save space, or keep if preferred) */}
+        {/* We keep it but make it look nicer on mobile */}
+        <Card className="md:col-span-1 shadow-sm">
+          <CardHeader className="pb-2">
             <CardTitle className="text-lg">My Profile</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-col items-center gap-3">
+            <div className="flex flex-row md:flex-col items-center gap-4 md:gap-3">
               <Avatar className="h-16 w-16 overflow-hidden rounded-full border border-slate-200">
                 <AvatarImage
                   src={
@@ -249,23 +244,29 @@ export default function DashboardShell({
                 />
                 <AvatarFallback>{user.name[0]}</AvatarFallback>
               </Avatar>
-              <div className="text-center">
+              <div className="text-left md:text-center flex-1">
                 <p className="font-bold text-lg">{user.name}</p>
                 <Badge variant="secondary" className="mt-1 capitalize">
                   {user.role}
                 </Badge>
               </div>
-              <div className="w-full bg-slate-100 p-3 rounded-lg text-center mt-2">
-                <span className="block text-2xl font-bold">4.9 ⭐</span>
-                <span className="text-xs text-slate-500">Neighbor Rating</span>
+              {/* Rating Bubble */}
+              <div className="bg-slate-100 p-2 md:p-3 rounded-lg text-center min-w-20">
+                <span className="block text-xl md:text-2xl font-bold">
+                  4.9 ⭐
+                </span>
+                <span className="text-[10px] md:text-xs text-slate-500">
+                  Rating
+                </span>
               </div>
             </div>
           </CardContent>
         </Card>
 
         {/* RIGHT: Map Area */}
-        <Card className="md:col-span-2 min-h-75 p-0 overflow-hidden relative">
-          <div className="h-125 w-full">
+        <Card className="md:col-span-2 p-0 overflow-hidden relative shadow-sm border-0 md:border">
+          {/* Mobile: Taller map for better visibility */}
+          <div className="h-[60vh] md:h-125 w-full">
             <Map
               lat={user.latitude || -1.2921}
               lng={user.longitude || 36.8219}
@@ -278,7 +279,34 @@ export default function DashboardShell({
         </Card>
       </div>
 
-      {/* THE SLIDE-OUT SHEET (Handles 3 Views) */}
+      {/* --- MOBILE BOTTOM NAVIGATION BAR 📱 --- */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-4 pb-6 z-50 flex justify-around items-center shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
+        {/* 1. Profile Button */}
+        <div className="flex flex-col items-center gap-1">
+          <ProfileSettings token={token} />
+          <span className="text-[10px] font-medium text-slate-500">
+            Profile
+          </span>
+        </div>
+
+        {/* 2. Main Action: Create Request */}
+        <div className="-mt-8">
+          <CreateRequest />
+        </div>
+
+        {/* 3. Map Reset (Optional, simple scroll to top) */}
+        <button
+          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          className="flex flex-col items-center gap-1 text-slate-600"
+        >
+          <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center">
+            <MapPin className="h-5 w-5" />
+          </div>
+          <span className="text-[10px] font-medium text-slate-500">Map</span>
+        </button>
+      </div>
+
+      {/* THE SLIDE-OUT SHEET */}
       <Sheet
         open={!!selectedNeighbor}
         onOpenChange={(open) => {
@@ -289,7 +317,10 @@ export default function DashboardShell({
           }
         }}
       >
-        <SheetContent className="flex flex-col h-full">
+        <SheetContent
+          className="flex flex-col h-full w-full sm:max-w-md"
+          side="right"
+        >
           {selectedNeighbor && (
             <>
               {isChatting ? (
@@ -302,16 +333,17 @@ export default function DashboardShell({
                       className="-ml-2 px-2"
                       onClick={() => setIsChatting(false)}
                     >
-                      ← Back
+                      <ArrowLeft className="h-4 w-4 mr-1" /> Back
                     </Button>
                     <SheetTitle>Chat with {selectedNeighbor.name}</SheetTitle>
                   </div>
 
                   <div className="flex-1 overflow-y-auto space-y-3 p-3 bg-slate-50 rounded-lg mb-4 border border-slate-100">
                     {conversation.length === 0 && (
-                      <p className="text-center text-slate-400 text-sm mt-10">
-                        No messages yet. Say hi! 👋
-                      </p>
+                      <div className="flex flex-col items-center justify-center h-full text-slate-400">
+                        <MessageSquare className="h-8 w-8 mb-2 opacity-50" />
+                        <p className="text-sm">No messages yet. Say hi! 👋</p>
+                      </div>
                     )}
                     {conversation.map((msg: any) => {
                       const isMe = msg.sender_id === user.id;
@@ -321,9 +353,9 @@ export default function DashboardShell({
                           className={`flex ${isMe ? "justify-end" : "justify-start"}`}
                         >
                           <div
-                            className={`px-3 py-2 rounded-lg max-w-[85%] text-sm ${
+                            className={`px-3 py-2 rounded-2xl max-w-[85%] text-sm ${
                               isMe
-                                ? "bg-slate-900 text-white rounded-br-none"
+                                ? "bg-blue-600 text-white rounded-br-none"
                                 : "bg-white border border-slate-200 text-slate-800 rounded-bl-none shadow-sm"
                             }`}
                           >
@@ -343,15 +375,20 @@ export default function DashboardShell({
                       name="content"
                       placeholder="Type a message..."
                       autoComplete="off"
-                      className="flex-1"
+                      className="flex-1 rounded-full"
                     />
-                    <Button type="submit" size="sm" className="bg-slate-900">
-                      Send
+                    <Button
+                      type="submit"
+                      size="icon"
+                      className="rounded-full bg-blue-600 h-10 w-10"
+                    >
+                      <ArrowLeft className="h-4 w-4 rotate-180" />{" "}
+                      {/* Send Icon */}
                     </Button>
                   </form>
                 </div>
               ) : viewingHistory ? (
-                // --- VIEW 2: HISTORY & REVIEWS ---
+                // --- VIEW 2: HISTORY ---
                 <div className="flex flex-col h-full mt-6">
                   <div className="flex items-center gap-2 mb-4">
                     <Button
@@ -360,7 +397,7 @@ export default function DashboardShell({
                       className="-ml-2 px-2"
                       onClick={() => setViewingHistory(false)}
                     >
-                      ← Back
+                      <ArrowLeft className="h-4 w-4 mr-1" /> Back
                     </Button>
                     <SheetTitle>History & Reviews</SheetTitle>
                   </div>
@@ -396,10 +433,10 @@ export default function DashboardShell({
                   </div>
                 </div>
               ) : (
-                // --- VIEW 3: PROFILE (DEFAULT) ---
+                // --- VIEW 3: PROFILE ---
                 <div className="flex flex-col gap-6 mt-6">
                   <div className="flex flex-col items-center">
-                    <Avatar className="h-24 w-24 overflow-hidden rounded-full border-4 border-slate-100">
+                    <Avatar className="h-24 w-24 overflow-hidden rounded-full border-4 border-slate-100 shadow-sm">
                       <AvatarImage
                         src={
                           selectedNeighbor.profile_image
@@ -417,13 +454,13 @@ export default function DashboardShell({
                     </SheetTitle>
 
                     <div className="flex items-center gap-2 mt-2">
-                      <Badge className="capitalize bg-blue-600">
+                      <Badge className="capitalize bg-blue-100 text-blue-800 hover:bg-blue-200">
                         {selectedNeighbor.role}
                       </Badge>
                       {selectedNeighbor.is_verified && (
                         <Badge
                           variant="outline"
-                          className="text-green-600 border-green-200"
+                          className="text-green-700 border-green-200 bg-green-50"
                         >
                           Verified ✅
                         </Badge>
@@ -432,13 +469,13 @@ export default function DashboardShell({
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-slate-50 p-4 rounded text-center">
+                    <div className="bg-slate-50 p-4 rounded-2xl text-center border border-slate-100">
                       <span className="block font-bold text-xl">12</span>
                       <span className="text-xs text-slate-500">
                         Helps Given
                       </span>
                     </div>
-                    <div className="bg-slate-50 p-4 rounded text-center">
+                    <div className="bg-slate-50 p-4 rounded-2xl text-center border border-slate-100">
                       <span className="block font-bold text-xl">5.0</span>
                       <span className="text-xs text-slate-500">Rating</span>
                     </div>
@@ -450,17 +487,18 @@ export default function DashboardShell({
 
                   <div className="mt-auto flex flex-col gap-3">
                     <Button
-                      className="w-full py-6 text-lg"
+                      className="w-full py-6 text-lg bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-200"
                       onClick={() => setIsChatting(true)}
                     >
-                      Message {selectedNeighbor.name}
+                      <MessageSquare className="mr-2 h-5 w-5" /> Message{" "}
+                      {selectedNeighbor.name}
                     </Button>
                     <Button
                       variant="outline"
-                      className="w-full"
+                      className="w-full py-6"
                       onClick={loadHistory}
                     >
-                      View Full History
+                      <History className="mr-2 h-5 w-5" /> View Full History
                     </Button>
                   </div>
                 </div>
@@ -470,9 +508,9 @@ export default function DashboardShell({
         </SheetContent>
       </Sheet>
 
-      {/* REVIEW DIALOG (Added to the end of return) */}
+      {/* REVIEW DIALOG */}
       <Dialog open={resolveModalOpen} onOpenChange={setResolveModalOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Complete Request & Review</DialogTitle>
             <DialogDescription>
@@ -482,7 +520,6 @@ export default function DashboardShell({
           </DialogHeader>
 
           <div className="py-4 space-y-4">
-            {/* STAR RATING UI */}
             <div className="flex flex-col items-center gap-2">
               <span className="text-sm font-semibold text-slate-700">
                 Tap to Rate:
@@ -512,9 +549,8 @@ export default function DashboardShell({
               </span>
             </div>
 
-            {/* COMMENT BOX */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">Comment</label>
+              <Label className="text-sm font-medium">Comment</Label>
               <Textarea
                 placeholder="How did they help? (e.g. Arrived quickly, very friendly!)"
                 value={comment}
@@ -530,7 +566,11 @@ export default function DashboardShell({
             >
               Cancel
             </Button>
-            <Button onClick={submitReview} disabled={submitting}>
+            <Button
+              onClick={submitReview}
+              disabled={submitting}
+              className="bg-slate-900"
+            >
               {submitting ? "Submitting..." : "Submit Review & Close"}
             </Button>
           </DialogFooter>

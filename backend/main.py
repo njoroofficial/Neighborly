@@ -480,3 +480,5 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str):
             await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(user_id)
+
+
