@@ -179,16 +179,6 @@ The app will be available at `http://localhost:3000`
 | GET    | `/messages/{user_id}` | Get conversation with user       |
 | WS     | `/ws/{user_id}`       | WebSocket for real-time messages |
 
-## 🌐 Deployment
-
-See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed deployment instructions.
-
-### Quick Overview
-
-- **Backend**: Deployed on [Render](https://render.com) as a Web Service
-- **Frontend**: Deployed on [Vercel](https://vercel.com) with automatic builds
-- **Database**: PostgreSQL (Render managed or external)
-
 ## 🔧 Environment Variables
 
 ### Backend (Render)
