@@ -29,6 +29,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { logoutAction } from "@/app/actions/auth";
 
 interface DashboardShellProps {
   user: any;
@@ -170,6 +171,10 @@ export default function DashboardShell({
         <div className="flex gap-2">
           <ProfileSettings token={token} />
           <CreateRequest />
+          {/* Log out */}
+          <Button variant="outline" onClick={() => logoutAction()}>
+            Log Out
+          </Button>
         </div>
       </div>
 
