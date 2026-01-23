@@ -32,9 +32,6 @@ import {
 } from "@/components/ui/dialog";
 import { logoutAction } from "@/app/actions/auth";
 import { MessageSquare, History, ArrowLeft, MapPin } from "lucide-react";
-import { getWebSocketUrl } from "@/lib/api";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
 interface DashboardShellProps {
   user: any;
@@ -75,8 +72,10 @@ export default function DashboardShell({
 
   // 1. WebSocket Connection ⚡
   useEffect(() => {
-    // Connect to the backend WebSocket using the API URL
-    const ws = new WebSocket(getWebSocketUrl(user.id));
+    // ws:// for localhost, wss:// for production
+    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+    // Connect to the backend WebSocket
+    const ws = new WebSocket(`${protocol}://127.0.0.1:8000/ws/${user.id}`);
 
     ws.onmessage = (event) => {
       const newMsg = JSON.parse(event.data);
@@ -95,7 +94,7 @@ export default function DashboardShell({
 
     try {
       const res = await fetch(
-        `${API_URL}/users/${selectedNeighbor.id}/reviews`,
+        `http://127.0.0.1:8000/users/${selectedNeighbor.id}/reviews`,
       );
       if (res.ok) {
         setReviews(await res.json());

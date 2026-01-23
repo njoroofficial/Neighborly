@@ -3,8 +3,6 @@
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
-
 export async function sendMessageAction(content: string, receiverId: string) {
   const token = (await cookies()).get("session_token")?.value;
 
@@ -12,7 +10,7 @@ export async function sendMessageAction(content: string, receiverId: string) {
     throw new Error("Authentication required. Please log in.");
   }
 
-  const response = await fetch(`${API_URL}/messages`, {
+  const response = await fetch("http://127.0.0.1:8000/messages", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

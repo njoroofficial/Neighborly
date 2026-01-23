@@ -4,8 +4,6 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
-
 // DEFINE SCHEMAS ---
 
 const RegisterSchema = z.object({
@@ -55,7 +53,7 @@ export async function registerAction(prevState: any, formData: FormData) {
     validatedFields.data;
 
   try {
-    const res = await fetch(`${API_URL}/register`, {
+    const res = await fetch("http://127.0.0.1:8000/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -106,7 +104,7 @@ export async function loginAction(prevState: any, formData: FormData) {
   const { email, password } = validatedFields.data;
 
   try {
-    const response = await fetch(`${API_URL}/login`, {
+    const response = await fetch("http://127.0.0.1:8000/login", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

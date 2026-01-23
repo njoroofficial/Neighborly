@@ -1,12 +1,11 @@
 from passlib.context import CryptContext
 from datetime import datetime, timedelta
 from jose import jwt
-import os
 
-# Configuration - Use environment variables in production
-SECRET_KEY = os.getenv("SECRET_KEY", "dba458fa154c82e0e36458ddfaf66bccc6bd18cfa11106c12dd8a2e5cb5f9f78")
+# Configuration
+SECRET_KEY = "dba458fa154c82e0e36458ddfaf66bccc6bd18cfa11106c12dd8a2e5cb5f9f78" 
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 # Setup the hashing engine (using bcrypt)
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
